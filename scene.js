@@ -5,6 +5,7 @@ import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.j
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { nodes, lanes, resources, state, set, initUI, activeLanes, roleOf, showTip, hideTip } from "./ui.js";
 import { createEnv } from "./env.js";
+import { createItems } from "./landmarks.js";
 
 const host = document.querySelector("#world");
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
@@ -212,6 +213,8 @@ function flowers(g, id, top, x, z, rand) {
   for (let k = 0; k < 6; k++)
     mesh(g, G.petal, mat(id, PETALS[Math.floor(rand() * PETALS.length)]), x + (rand() - 0.5) * 0.11, top + 0.026, z + (rand() - 0.5) * 0.11, 1, 1, 1);
 }
+
+const ITEMS = createItems({ mesh, mat, G, house, tree, winMat, lampMat });
 
 // A landmark per island so each policy reads at a glance. Returns its footprint
 // radius, which decides whether the inner ring of plots stays free.
@@ -428,16 +431,24 @@ for (const n of nodes.values()) {
     }
 
   if (!n.port) {
-    // Plots sit outside the ring road: houses in the corners, trees on edges without a bridge.
+    // Plots sit outside the ring road. Corners take the island's policy items first, then
+    // generic houses; edges without a bridge get trees or flower beds.
     const plots = [];
     for (let k = 0; k < 6; k++) plots.push([0.8, (Math.PI / 3) * k, true]);
     for (let k = 0; k < 6; k++) if (!bridged(n.id, k)) plots.push([0.72, (Math.PI / 3) * k + Math.PI / 6, false]);
     plots.sort(() => rand() - 0.5);
     const green = n.id === "forest" || n.id === "trails";
-    let houses = green ? 2 : Math.min(n.b - 1, 6);
+    const items = [...(ITEMS[n.id] || [])];
+    let houses = green ? 0 : Math.min(n.b - 1, 6) - items.length;
     for (const [r, a, corner] of plots) {
       const x = Math.sin(a) * r + (rand() - 0.5) * 0.04, z = Math.cos(a) * r + (rand() - 0.5) * 0.04;
-      if (corner && houses-- > 0) {
+      if (corner && items.length) {
+        const p = new THREE.Group();
+        p.position.set(Math.sin(a) * r, top, Math.cos(a) * r);
+        p.rotation.y = a + Math.PI; // front toward the ring road
+        g.add(p);
+        items.shift()(p, n.id, rand, accent);
+      } else if (corner && houses-- > 0) {
         const w = 0.13 + rand() * 0.06, h = 0.12 + rand() * 0.16;
         const kind = h > 0.22 ? "flat" : rand() < 0.5 ? "gable" : "hip";
         house(g, n.id, top, x, z, w, w * (0.8 + rand() * 0.4), h, WALLS[Math.floor(rand() * WALLS.length)], rand() < 0.5 ? accent : ROOFS[Math.floor(rand() * ROOFS.length)], a, kind, rand);
