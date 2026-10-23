@@ -7,6 +7,11 @@ const host = document.querySelector("#world");
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const reduced = matchMedia("(prefers-reduced-motion: reduce)");
 const dark = matchMedia("(prefers-color-scheme: dark)");
+// An explicit data-theme on <html> (set by the artifact viewer) wins over the OS setting.
+const isDark = () => {
+  const t = document.documentElement.dataset.theme;
+  return t ? t === "dark" : dark.matches;
+};
 
 // ---- renderer, camera, light -------------------------------------------------
 let renderer;
@@ -550,11 +555,11 @@ function applyTheme() {
   scene.background = sky;
   scene.fog = new THREE.Fog(sky, 24, 60);
   water.material.color.set(css("--water"));
-  shoalMat.color.set(css("--water")).lerp(new THREE.Color("#ffffff"), dark.matches ? 0.08 : 0.35);
-  hemi.color.set(dark.matches ? "#9fb3d1" : "#ffffff");
-  hemi.groundColor.set(dark.matches ? "#1b2230" : "#b9aa90");
-  hemi.intensity = dark.matches ? 0.9 : 1.5;
-  sun.intensity = dark.matches ? 1.3 : 2.3;
+  shoalMat.color.set(css("--water")).lerp(new THREE.Color("#ffffff"), isDark() ? 0.08 : 0.35);
+  hemi.color.set(isDark() ? "#9fb3d1" : "#ffffff");
+  hemi.groundColor.set(isDark() ? "#1b2230" : "#b9aa90");
+  hemi.intensity = isDark() ? 0.9 : 1.5;
+  sun.intensity = isDark() ? 1.3 : 2.3;
   for (const list of tints.values())
     for (const e of list)
       if (e.key) {
@@ -564,6 +569,7 @@ function applyTheme() {
   set({});
 }
 dark.addEventListener("change", applyTheme);
+new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
 // ---- picking -----------------------------------------------------------------
 const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
