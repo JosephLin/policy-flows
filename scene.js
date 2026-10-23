@@ -425,6 +425,7 @@ for (const n of nodes.values()) {
       lamp(g, n.id, top, Math.sin(a) * r, Math.cos(a) * r);
     }
 
+  const placed = []; // policy items on this island, for hover labels
   if (!n.port) {
     // Plots sit outside the ring road. Corners take the island's policy items first, then
     // generic houses; edges without a bridge get trees or flower beds.
@@ -442,7 +443,9 @@ for (const n of nodes.values()) {
         p.position.set(Math.sin(a) * r, top, Math.cos(a) * r);
         p.rotation.y = a + Math.PI; // front toward the ring road
         g.add(p);
-        items.shift()(p, n.id, rand, accent);
+        const item = items.shift();
+        item.build(p, n.id, rand, accent);
+        placed.push({ name: item.name, x: p.position.x, z: p.position.z });
       } else if (corner && houses-- > 0) {
         const w = 0.13 + rand() * 0.06, h = 0.12 + rand() * 0.16;
         const kind = h > 0.22 ? "flat" : rand() < 0.5 ? "gable" : "hip";
@@ -469,7 +472,7 @@ for (const n of nodes.values()) {
   label.position.set(0, top + (n.port ? 0.75 : 1.05), 0);
   g.add(label);
 
-  islands.set(n.id, { g, top, ground, label: div, roleEl: div.querySelector(".rl"), lift: 0 });
+  islands.set(n.id, { g, top, ground, label: div, roleEl: div.querySelector(".rl"), lift: 0, items: placed });
 }
 
 // Wooden bridges between neighboring islands, edge to edge.
@@ -815,19 +818,43 @@ new MutationObserver(applyTheme).observe(document.documentElement, { attributes:
 const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
 let hovered = null, downAt = null;
 
-function pick(e) {
+function hit(e) {
   const box = renderer.domElement.getBoundingClientRect();
   ptr.set(((e.clientX - box.left) / box.width) * 2 - 1, -((e.clientY - box.top) / box.height) * 2 + 1);
   ray.setFromCamera(ptr, camera);
-  return ray.intersectObjects(pickables, true)[0]?.object.userData.id ?? null;
+  return ray.intersectObjects(pickables, true)[0] ?? null;
 }
+const pick = (e) => hit(e)?.object.userData.id ?? null;
+// The policy item nearest the pointer on the island it's over, if one is close
+// enough. Items are baked into the island mesh, so this goes by their recorded spots.
+function itemAt(h) {
+  const id = h?.object.userData.id, isl = id && islands.get(id);
+  if (!isl) return null;
+  const x = h.point.x - isl.g.position.x, z = h.point.z - isl.g.position.z;
+  let best = null, reach = 0.14;
+  for (const item of isl.items) {
+    const d = Math.hypot(item.x - x, item.z - z);
+    if (d < reach) (reach = d), (best = { ...item, id });
+  }
+  return best;
+}
+// A soft ring on the ground marks the item a tooltip is naming.
+const itemRing = new THREE.Mesh(
+  new THREE.RingGeometry(0.1, 0.125, 40).rotateX(-Math.PI / 2),
+  new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.9, depthWrite: false, toneMapped: false }),
+);
+itemRing.visible = false;
+world.add(itemRing);
+let hoveredItem = null;
 const canvas = renderer.domElement;
 canvas.addEventListener("pointermove", (e) => {
-  hovered = e.buttons ? null : pick(e);
+  const h = e.buttons ? null : hit(e);
+  hovered = h?.object.userData.id ?? null;
+  hoveredItem = itemAt(h);
   canvas.style.cursor = hovered ? "pointer" : "";
-  hovered ? showTip(hovered, e.clientX, e.clientY) : hideTip();
+  hovered ? showTip(hovered, e.clientX, e.clientY, hoveredItem?.name) : hideTip();
 });
-canvas.addEventListener("pointerleave", () => ((hovered = null), hideTip()));
+canvas.addEventListener("pointerleave", () => ((hovered = hoveredItem = null), hideTip()));
 canvas.addEventListener("pointerdown", (e) => (downAt = [e.clientX, e.clientY]));
 canvas.addEventListener("pointerup", (e) => {
   if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
@@ -867,8 +894,13 @@ renderer.setAnimationLoop(() => {
   stepPeople(reduced.matches ? 0 : t);
   for (const list of tints.values()) for (const e of list) e.m.color.lerp(e.target, 0.12);
   for (const [id, isl] of islands) {
-    const goal = isl.lift + (hovered === id ? 0.05 : 0);
+    const goal = isl.lift + (hovered === id && !hoveredItem ? 0.05 : 0);
     isl.g.position.y += (goal - isl.g.position.y) * 0.18;
+  }
+  itemRing.visible = !!hoveredItem;
+  if (hoveredItem) {
+    const isl = islands.get(hoveredItem.id);
+    itemRing.position.set(isl.g.position.x + hoveredItem.x, isl.g.position.y + isl.top + 0.014, isl.g.position.z + hoveredItem.z);
   }
   controls.update();
   renderer.render(scene, camera);

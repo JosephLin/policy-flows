@@ -12,6 +12,8 @@ cleanly. `tools/sbs.swift` composes each pair side by side.
 - **closeup**: the map region (800 × 545) after 16 scroll steps in at the same
   point on the map.
 - **roles closeup**: as closeup, but in the 人力 view with people on.
+- **hover**: as closeup, with the pointer held on one landmark (the 衛福 minibus,
+  at 215, 300 in the pane).
 
 "Before" is the commit just before the milestone and "after" is the milestone
 itself. Earlier milestones were captured afterwards, by serving each old commit
@@ -66,3 +68,10 @@ prototype badge.
 
 ![Policy landmarks](2026-10-23-policy-landmarks/pair-overview.jpg)
 ![Policy landmarks, close up](2026-10-23-policy-landmarks/pair-closeup.jpg)
+
+### 9 · Hover labels for policy landmarks
+
+Close-up with the pointer on the 衛福 minibus. Before, the tip summarized the
+island. After, it names the policy item the model stands for (在宅醫療).
+
+![Landmark labels](2026-10-23-landmark-labels/hover.jpg)

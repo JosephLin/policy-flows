@@ -250,21 +250,23 @@ export function createItems({ mesh, mat, G, house, tree, winMat, lampMat }) {
     },
   };
 
-  // 2–3 items per island, in the order they claim corner plots.
+  // 2–3 items per island, in the order they claim corner plots, each with the policy
+  // item it stands for (the item's short name from the source's public data).
+  const it = (name, build) => ({ name, build });
   return {
-    civil: [M.clockTower, M.aiBase, M.healthKiosk],
-    institute: [M.childSafety, M.accessible, M.elderPavilion],
-    transport: [M.busStop, M.bikeDock, M.signpost],
-    education: [M.playground, M.aiBase],
-    lunch: [M.raisedBeds, M.lunchCart],
-    family: [M.hotlineBooth, M.daycare],
-    card: [M.bookshop, M.fitness],
-    welfare: [M.elderPavilion, M.minibus, M.healthKiosk],
-    sport: [M.minibus, M.fitness, M.sportsDome],
-    trails: [M.trailCabin, M.signpost, M.minibus],
-    forest: [M.pocketPark, M.logPile, M.sensorTree],
-    youth: [M.starSculpture, M.aiBase],
-    diplomacy: [M.flagRow, M.minibus],
-    hakka: [M.elderPavilion, M.schoolBus, M.umbrellas],
+    civil: [it("彈性上下班鐘塔", M.clockTower), it("AI 支援小隊基地", M.aiBase), it("健檢補助站", M.healthKiosk)],
+    institute: [it("兒少安全治理中心", M.childSafety), it("無障礙城市設計中心", M.accessible), it("失智友善中心", M.elderPavilion)],
+    transport: [it("公車安全改革", M.busStop), it("YouBike 2.0E 尖峰免費", M.bikeDock), it("河濱車道評分", M.signpost)],
+    education: [it("小班教室", M.playground), it("AI 教學工具", M.aiBase)],
+    lunch: [it("在地小農田", M.raisedBeds), it("彈性餐費機制", M.lunchCart)],
+    family: [it("單一育兒專線", M.hotlineBooth), it("每週免費臨托", M.daycare)],
+    card: [it("分齡閱讀禮袋", M.bookshop), it("運動幣", M.fitness)],
+    welfare: [it("住宿型長照與共照據點", M.elderPavilion), it("在宅醫療", M.minibus), it("皮蛇疫苗", M.healthKiosk)],
+    sport: [it("社區運動小巴", M.minibus), it("巷口運動據點", M.fitness), it("花博旗艦運動中心", M.sportsDome)],
+    trails: [it("劍潭登山觀光中心", M.trailCabin), it("城市歷史記憶徑", M.signpost), it("最後一哩接駁", M.minibus)],
+    forest: [it("口袋公園", M.pocketPark), it("廢木料銀行", M.logPile), it("路樹數位雙生", M.sensorTree)],
+    youth: [it("台北青年圓夢計畫", M.starSculpture), it("AI 教育錢包", M.aiBase)],
+    diplomacy: [it("無限城合作網絡", M.flagRow), it("基層公務員半年互換", M.minibus)],
+    hakka: [it("長輩有據點", M.elderPavilion), it("兒童有互訪", M.schoolBus), it("世界有客家", M.umbrellas)],
   };
 }
