@@ -367,15 +367,15 @@ function drawLanes() {
       .addScaledVector(left, 0.16 + l.nth * 0.14 + d * 0.05)
       .addScaledVector(UP, 0.7 + d * 0.28);
     const curve = new THREE.QuadraticBezierCurve3(start, ctrl, end);
-    // The walkers carry the motion now, so arcs stay thin and quiet, quieter still
-    // in the overview where all six networks overlap.
-    const faded = dim && !l.hi, color = colors.get(l.res), all = !state.res;
+    // The walkers carry the motion now, so arcs stay thin. Every view, the overview
+    // included, keeps each arc in its resource's color.
+    const faded = dim && !l.hi, color = colors.get(l.res);
     const tube = new THREE.Mesh(
       new THREE.TubeGeometry(curve, 48, 0.022, 6),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.05 : all && !l.hi ? 0.22 : 0.5, depthWrite: false }),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.05 : 0.55, depthWrite: false }),
     );
     laneGroup.add(tube);
-    const arrow = new THREE.Mesh(G.arrow, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.1 : all && !l.hi ? 0.45 : 1 }));
+    const arrow = new THREE.Mesh(G.arrow, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.1 : 1 }));
     arrow.position.copy(end);
     arrow.quaternion.setFromUnitVectors(UP, curve.getTangentAt(1));
     laneGroup.add(arrow);
