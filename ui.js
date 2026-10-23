@@ -48,12 +48,12 @@ export function rolesFor(res) {
   return { out, inn };
 }
 
-// Lanes for the current resource (all of them in the overview), each with its index
-// among same-direction twins.
+// Lanes for the current resource: none by default, every one under 全部 ("all").
+// Each carries its index among same-direction twins.
 export function activeLanes() {
   const seen = new Map(), list = [];
   for (const l of lanes) {
-    if (state.res && l.res !== state.res) continue;
+    if (!state.res || (state.res !== "all" && l.res !== state.res)) continue;
     const key = `${l.a}>${l.b}`, nth = seen.get(key) || 0;
     seen.set(key, nth + 1);
     const hi = (state.focus && (l.a === state.focus || l.b === state.focus)) || state.hoverFlow === l.flow.id;
@@ -71,6 +71,7 @@ export const roleOf = (id, out, inn, r) => {
 };
 
 // ---- state -------------------------------------------------------------------
+// res: null shows no lanes, "all" shows every lane, a resource id shows one network.
 export const state = { res: null, focus: null, hoverFlow: null };
 let hooks = {};
 
@@ -141,7 +142,7 @@ function renderPanel(r, out, inn) {
     const shown = r ? touching.filter((f) => f.res === r.id) : touching;
     const sends = shown.filter((f) => f.from.includes(focus.id) || (f.two && f.to.includes(focus.id))).length;
     const gets = shown.filter((f) => f.to.includes(focus.id) || (f.two && f.from.includes(focus.id))).length;
-    html += `<button class="back" data-act="unfocus">← ${r ? r.zh : "全部資源"}</button>
+    html += `<button class="back" data-act="unfocus">← ${r ? r.zh : state.res === "all" ? "全部資源" : "總覽"}</button>
       <h2>${focus.port ? "" : `<span>${focus.n}</span>`} ${focus.zh}</h2>
       <div class="zh">${focus.port ? "對外連結" : "政策島"}</div>
       <div class="stats"><div><b>${shown.length}</b><span>${r ? `${r.zh}流動` : "流動"}</span></div>
@@ -162,8 +163,12 @@ function renderPanel(r, out, inn) {
       <h3>流動</h3><ul class="list">${flowItems(fl)}</ul>
       <h3>圖例</h3>${legend()}`;
   } else {
-    html += `<h2>全部資源</h2>
-      <p class="zh">總覽：六種資源的流動疊在一起，線條顏色代表資源種類；島旁的圓點代表它參與哪些資源。</p>
+    html += state.res === "all"
+      ? `<h2>全部資源</h2>
+      <p class="zh">六種資源的流動疊在一起，線條顏色代表資源種類。</p>`
+      : `<h2>總覽</h2>
+      <p class="zh">目前沒有顯示流動。選一種資源，或選「全部」一次看六種；島旁的圓點代表它參與哪些資源。</p>`;
+    html += `
       <h3>資源</h3>
       <ul class="list">${resources
         .map((x) => {
@@ -171,7 +176,7 @@ function renderPanel(r, out, inn) {
           return `<li data-res="${x.id}" style="--c:var(--${x.id})"><b>${x.zh}</b><div class="route">${n} 條流動 · 按鍵 ${x.key}</div></li>`;
         })
         .join("")}</ul>
-      <p class="note">按 1–6 切換檢視，按 0 或 Esc 回到總覽。點一座島，看它送出和接收什麼。</p>`;
+      <p class="note">按 1–6 選資源，按 0 看全部；再點一次同一個按鈕或按鍵就關閉，Esc 也會關閉。點一座島，看它送出和接收什麼。</p>`;
   }
   html += `<p class="note">${hooks.footer || ""}原型。資料結構取自 puma.taipei/heart-island（2026-10-22），六種資源分類與文字為自行整理。</p>`;
   panel.innerHTML = html;
@@ -192,18 +197,19 @@ export function initUI(h) {
   hooks = h;
   const bar = $("#bar");
   bar.innerHTML =
-    `<button data-res="" title="全部資源（0）">${icon("all")}全部<kbd>0</kbd></button>` +
+    `<button data-res="all" title="全部資源（0）">${icon("all")}全部<kbd>0</kbd></button>` +
     resources.map((r) => `<button data-res="${r.id}" style="--c:var(--${r.id})" title="${r.zh}（${r.key}）">${icon(r.id)}${r.short}<kbd>${r.key}</kbd></button>`).join("");
   bar.addEventListener("click", (e) => {
     const b = e.target.closest("button");
-    if (b) set({ res: b.dataset.res || null, hoverFlow: null });
+    // Clicking the selected resource again turns it off, like pressing its key twice.
+    if (b) set({ res: b.dataset.res !== state.res ? b.dataset.res : null, hoverFlow: null });
   });
 
   addEventListener("keydown", (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const r = resources.find((x) => x.key === e.key);
     if (r) set({ res: r.id === state.res ? null : r.id });
-    else if (e.key === "0") set({ res: null });
+    else if (e.key === "0") set({ res: state.res === "all" ? null : "all" });
     else if (e.key === "Escape") set(state.focus ? { focus: null } : { res: null });
   });
 
@@ -217,7 +223,7 @@ export function initUI(h) {
   });
   panel.addEventListener("pointerover", (e) => {
     const t = e.target.closest("[data-flow]");
-    const id = t && (!state.res || t.dataset.res === state.res) ? t.dataset.flow : null;
+    const id = t && (state.res === "all" || t.dataset.res === state.res) ? t.dataset.flow : null;
     if (id !== state.hoverFlow) {
       state.hoverFlow = id;
       hooks.onHoverFlow?.();

@@ -473,7 +473,7 @@ function buildPeople(list, dim) {
   people = residents.concat(carriers).slice(0, MAX_PEOPLE);
   people.forEach((p, i) => {
     // In an info view, residents fade to gray so the carriers read as the network.
-    bodies.setColorAt(i, state.res && !p.crate ? gray : p.clothes);
+    bodies.setColorAt(i, state.res && state.res !== "all" && !p.crate ? gray : p.clothes);
     heads.setColorAt(i, p.skin);
     crates.setColorAt(i, p.crate || p.clothes);
   });
