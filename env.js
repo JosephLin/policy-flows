@@ -173,16 +173,17 @@ export function createEnv(scene, { css, isDark }) {
   for (let k = 0; k < 6; k++) {
     const b = boat(rand);
     scene.add(b);
-    boats.push({ o: b, phase: (k / 6) * Math.PI * 2 + rand() * 0.4, speed: (rand() < 0.5 ? 1 : -1) * (0.035 + rand() * 0.02), rx: 5.2 + rand() * 0.7, rz: 6.8 + rand() * 0.8 });
+    boats.push({ o: b, phase: (k / 6) * Math.PI * 2 + rand() * 0.4, speed: (rand() < 0.5 ? 1 : -1) * (0.035 + rand() * 0.02), rx: 4.9 + rand() * 0.4, rz: 6.6 + rand() * 0.6 });
   }
 
-  // A small wind farm on an islet off the west shore.
-  const islet = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.95, 0.5, 9), new THREE.MeshStandardMaterial({ color: "#86ad6c", roughness: 0.95, flatShading: true }));
-  islet.position.set(-5.7, -0.12, -1.5);
+  // A small wind farm on an islet off the west shore, outside the boats' widest loop
+  // (x ≤ 5.3 at z = -1.5 plus half a hull) so no sail passes through it.
+  const islet = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.7, 0.5, 9), new THREE.MeshStandardMaterial({ color: "#86ad6c", roughness: 0.95, flatShading: true }));
+  islet.position.set(-6.3, -0.12, -1.5);
   islet.receiveShadow = islet.castShadow = true;
   scene.add(islet);
   const rotors = [];
-  for (const [x, z] of [[-5.95, -1.75], [-5.45, -1.2]]) {
+  for (const [x, z] of [[-6.45, -1.7], [-6.1, -1.25]]) {
     const t = turbine();
     t.g.position.set(x, 0.13, z);
     t.rotor.rotation.z = rand() * 3;
