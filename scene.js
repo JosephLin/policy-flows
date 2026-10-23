@@ -13,7 +13,7 @@ let renderer;
 try {
   renderer = new THREE.WebGLRenderer({ antialias: true });
 } catch (err) {
-  host.innerHTML = `<p class="nogl card">This browser can't run WebGL. <a href="flat.html">Open the flat map</a>.</p>`;
+  host.innerHTML = `<p class="nogl card">這個瀏覽器無法執行 WebGL，<a href="flat.html">改看平面地圖</a>。</p>`;
   throw err;
 }
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -274,7 +274,7 @@ for (const n of nodes.values()) {
   const div = document.createElement("div");
   div.className = `lbl${n.port ? " port" : ""}`;
   const used = resources.filter((r) => lanes.some((l) => l.res === r.id && (l.a === n.id || l.b === n.id)));
-  div.innerHTML = `<b>${n.n || ""}</b><span class="nm">${n.en}</span><i class="rl"></i><span class="pips">${used.map((r) => `<span style="--c:var(--${r.id})"></span>`).join("")}</span>`;
+  div.innerHTML = `<b>${n.n || ""}</b><span class="nm">${n.zh}</span><i class="rl"></i><span class="pips">${used.map((r) => `<span style="--c:var(--${r.id})"></span>`).join("")}</span>`;
   div.addEventListener("click", () => set({ focus: state.focus === n.id ? null : n.id, hoverFlow: null }));
   div.addEventListener("pointermove", (e) => showTip(n.id, e.clientX, e.clientY));
   div.addEventListener("pointerleave", hideTip);
@@ -451,5 +451,5 @@ renderer.setAnimationLoop(() => {
   labelRenderer.render(scene, camera);
 });
 
-initUI({ onRender, onHoverFlow: drawLanes, footer: '<a href="flat.html">Open the flat map</a>. ' });
+initUI({ onRender, onHoverFlow: drawLanes, footer: '<a href="flat.html">開啟平面地圖</a>。' });
 applyTheme();

@@ -43,7 +43,7 @@ for (const n of nodes.values()) {
   const num = el("text", { class: "num", x, y: y - (n.port ? 2 : 6) }, lg);
   num.textContent = n.port ? "" : n.n;
   const nm = el("text", { class: "name", x, y: y + (n.port ? 4 : 10) }, lg);
-  nm.textContent = n.en;
+  nm.textContent = n.zh;
   const role = el("text", { class: "role", x, y: y + (n.port ? 18 : 26) }, lg);
   const pips = el("g", { class: "pips" }, lg);
   const used = resources.filter((r) => lanes.some((l) => l.res === r.id && (l.a === n.id || l.b === n.id)));
@@ -105,4 +105,4 @@ svg.addEventListener("pointermove", (e) => {
 });
 svg.addEventListener("pointerleave", hideTip);
 
-initUI({ onRender, onHoverFlow: drawLanes, footer: '<a href="./">Open the 3D view</a>. ' });
+initUI({ onRender, onHoverFlow: drawLanes, footer: '<a href="./">開啟 3D 檢視</a>。' });

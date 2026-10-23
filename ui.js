@@ -61,8 +61,7 @@ export function activeLanes() {
   return { list, dim: !!(state.focus || state.hoverFlow) };
 }
 
-export const name = (id) => nodes.get(id).en;
-export const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+export const name = (id) => nodes.get(id).zh;
 export const roleOf = (id, out, inn, r) => {
   const o = out.get(id) || 0, i = inn.get(id) || 0;
   const role = !r ? "" : o && i ? "both" : o ? "src" : i ? "sink" : "off";
@@ -100,16 +99,16 @@ export function showTip(id, clientX, clientY) {
     const sendTo = [...new Set(mine.filter((l) => l.a === n.id).map((l) => name(l.b)))];
     const getFrom = [...new Set(mine.filter((l) => l.b === n.id).map((l) => name(l.a)))];
     body = !sendTo.length && !getFrom.length
-      ? `<li>Not part of the ${r.en.toLowerCase()} network</li>`
-      : (sendTo.length ? `<li>▲ Sends to ${sendTo.join(", ")}</li>` : "") + (getFrom.length ? `<li>▼ Receives from ${getFrom.join(", ")}</li>` : "");
+      ? `<li>不在${r.zh}網絡中</li>`
+      : (sendTo.length ? `<li>▲ 送往：${sendTo.join("、")}</li>` : "") + (getFrom.length ? `<li>▼ 來自：${getFrom.join("、")}</li>` : "");
   } else {
     body = resources
       .map((x) => [x, lanes.filter((l) => l.res === x.id && (l.a === n.id || l.b === n.id)).length])
       .filter(([, k]) => k)
-      .map(([x, k]) => `<li><span style="color:var(--${x.id})">●</span> ${x.en}: ${plural(k, "lane")}</li>`)
-      .join("") || "<li>No flows</li>";
+      .map(([x, k]) => `<li><span style="color:var(--${x.id})">●</span> ${x.zh}：${k} 條路線</li>`)
+      .join("") || "<li>沒有流動</li>";
   }
-  tip.innerHTML = `<b>${n.en}</b> <span class="zh">${n.zh}</span><ul>${body}</ul>`;
+  tip.innerHTML = `<b>${n.zh}</b>${n.port ? ' <span class="zh">對外連結</span>' : ""}<ul>${body}</ul>`;
   tip.hidden = false;
   const box = $("#stage").getBoundingClientRect();
   const x = clientX - box.left + 14, y = clientY - box.top + 14;
@@ -122,7 +121,7 @@ export const hideTip = () => (tip.hidden = true);
 const panel = $("#panel");
 
 function routeText(f) {
-  const side = (ids) => (ids.length > 3 ? `${ids.length} islands` : ids.map(name).join(", "));
+  const side = (ids) => (ids.length > 3 ? `${ids.length} 座島` : ids.map(name).join("、"));
   return `${side(f.from)} ${f.two ? "⇄" : "→"} ${side(f.to)}`;
 }
 
@@ -141,48 +140,48 @@ function renderPanel(r, out, inn) {
     const shown = r ? touching.filter((f) => f.res === r.id) : touching;
     const sends = shown.filter((f) => f.from.includes(focus.id) || (f.two && f.to.includes(focus.id))).length;
     const gets = shown.filter((f) => f.to.includes(focus.id) || (f.two && f.from.includes(focus.id))).length;
-    html += `<button class="back" data-act="unfocus">← ${r ? r.en : "All resources"}</button>
-      <h2>${focus.port ? "" : `<span>${focus.n}</span>`} ${focus.en}</h2>
-      <div class="zh">${focus.zh}${focus.port ? " · outside connection" : ""}</div>
-      <div class="stats"><div><b>${shown.length}</b><span>flows${r ? ` (${r.en.toLowerCase()})` : ""}</span></div>
-        <div><b>${sends}</b><span>sends</span></div><div><b>${gets}</b><span>receives</span></div></div>
-      <h3>${r ? `${r.en} here` : "Flows here"}</h3>
-      ${shown.length ? `<ul class="list">${flowItems(shown)}</ul>` : `<p class="zh">No ${r ? r.en.toLowerCase() : ""} flows touch this island.</p>`}`;
+    html += `<button class="back" data-act="unfocus">← ${r ? r.zh : "全部資源"}</button>
+      <h2>${focus.port ? "" : `<span>${focus.n}</span>`} ${focus.zh}</h2>
+      <div class="zh">${focus.port ? "對外連結" : "政策島"}</div>
+      <div class="stats"><div><b>${shown.length}</b><span>${r ? `${r.zh}流動` : "流動"}</span></div>
+        <div><b>${sends}</b><span>送出</span></div><div><b>${gets}</b><span>接收</span></div></div>
+      <h3>${r ? `這裡的${r.zh}` : "這裡的流動"}</h3>
+      ${shown.length ? `<ul class="list">${flowItems(shown)}</ul>` : `<p class="zh">沒有${r ? r.zh : ""}流動經過這裡。</p>`}`;
     if (r && touching.length > shown.length)
-      html += `<p class="note">${plural(touching.length - shown.length, "more flow")} in other resources. Press 0 to see them all.</p>`;
+      html += `<p class="note">其他資源還有 ${touching.length - shown.length} 條流動，按 0 查看全部。</p>`;
   } else if (r) {
     const fl = flows.filter((f) => f.res === r.id);
     const top = [...out.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
-    html += `<h2 style="--c:var(--${r.id})">${icon(r.id)} ${r.en}</h2>
-      <div class="zh">${r.zh}</div><p>${r.blurb}</p>
-      <div class="stats"><div><b>${fl.length}</b><span>flows</span></div>
-        <div><b>${out.size}</b><span>sources</span></div><div><b>${inn.size}</b><span>receivers</span></div></div>
-      <h3>Biggest sources</h3>
-      <ul class="list">${top.map(([id, n]) => `<li data-node="${id}" style="--c:var(--${r.id})">${name(id)}<div class="route">sends along ${plural(n, "lane")}</div></li>`).join("")}</ul>
-      <h3>Flows</h3><ul class="list">${flowItems(fl)}</ul>
-      <h3>Legend</h3>${legend()}`;
+    html += `<h2 style="--c:var(--${r.id})">${icon(r.id)} ${r.zh}</h2>
+      <p>${r.blurb}</p>
+      <div class="stats"><div><b>${fl.length}</b><span>流動</span></div>
+        <div><b>${out.size}</b><span>來源</span></div><div><b>${inn.size}</b><span>接收端</span></div></div>
+      <h3>主要來源</h3>
+      <ul class="list">${top.map(([id, n]) => `<li data-node="${id}" style="--c:var(--${r.id})">${name(id)}<div class="route">送出 ${n} 條路線</div></li>`).join("")}</ul>
+      <h3>流動</h3><ul class="list">${flowItems(fl)}</ul>
+      <h3>圖例</h3>${legend()}`;
   } else {
-    html += `<h2>All resources</h2>
-      <p class="zh">Overview: each island's dots show which resources it trades.</p>
-      <h3>Resources</h3>
+    html += `<h2>全部資源</h2>
+      <p class="zh">總覽：每座島旁的圓點，代表它參與哪些資源。</p>
+      <h3>資源</h3>
       <ul class="list">${resources
         .map((x) => {
           const n = flows.filter((f) => f.res === x.id).length;
-          return `<li data-res="${x.id}" style="--c:var(--${x.id})"><b>${x.en}</b> <span class="zh">${x.zh}</span><div class="route">${plural(n, "flow")} · key ${x.key}</div></li>`;
+          return `<li data-res="${x.id}" style="--c:var(--${x.id})"><b>${x.zh}</b><div class="route">${n} 條流動 · 按鍵 ${x.key}</div></li>`;
         })
         .join("")}</ul>
-      <p class="note">Keys 1–6 switch views, 0 or Esc returns here. Click an island to see what it sends and receives.</p>`;
+      <p class="note">按 1–6 切換檢視，按 0 或 Esc 回到總覽。點一座島，看它送出和接收什麼。</p>`;
   }
-  html += `<p class="note">${hooks.footer || ""}Prototype. Data structure from puma.taipei/heart-island (2026-10-22); the six resource groups and wording are ours.</p>`;
+  html += `<p class="note">${hooks.footer || ""}原型。資料結構取自 puma.taipei/heart-island（2026-10-22），六種資源分類與文字為自行整理。</p>`;
   panel.innerHTML = html;
 }
 
 function legend() {
   return `<div class="legend">
-    <div><span class="sw" style="background:color-mix(in srgb,var(--rc) 75%,var(--land))"></span>▲ Source: sends this resource</div>
-    <div><span class="sw" style="background:color-mix(in srgb,var(--rc) 50%,var(--land))"></span>▲▼ Both sends and receives</div>
-    <div><span class="sw" style="background:color-mix(in srgb,var(--rc) 22%,var(--land))"></span>▼ Receiver only</div>
-    <div><span class="sw" style="background:var(--land-off)"></span>Not part of this network</div>
+    <div><span class="sw" style="background:color-mix(in srgb,var(--rc) 75%,var(--land))"></span>▲ 來源：送出這項資源</div>
+    <div><span class="sw" style="background:color-mix(in srgb,var(--rc) 50%,var(--land))"></span>▲▼ 同時送出與接收</div>
+    <div><span class="sw" style="background:color-mix(in srgb,var(--rc) 22%,var(--land))"></span>▼ 只接收</div>
+    <div><span class="sw" style="background:var(--land-off)"></span>不在這個網絡中</div>
   </div>`;
 }
 
@@ -192,8 +191,8 @@ export function initUI(h) {
   hooks = h;
   const bar = $("#bar");
   bar.innerHTML =
-    `<button data-res="" title="All resources (0)">${icon("all")}All<kbd>0</kbd></button>` +
-    resources.map((r) => `<button data-res="${r.id}" style="--c:var(--${r.id})" title="${r.en} (${r.key})">${icon(r.id)}${r.en.split(" ")[0]}<kbd>${r.key}</kbd></button>`).join("");
+    `<button data-res="" title="全部資源（0）">${icon("all")}全部<kbd>0</kbd></button>` +
+    resources.map((r) => `<button data-res="${r.id}" style="--c:var(--${r.id})" title="${r.zh}（${r.key}）">${icon(r.id)}${r.short}<kbd>${r.key}</kbd></button>`).join("");
   bar.addEventListener("click", (e) => {
     const b = e.target.closest("button");
     if (b) set({ res: b.dataset.res || null, hoverFlow: null });

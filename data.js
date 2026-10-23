@@ -1,7 +1,7 @@
 // Islands, outside connections and flows, re-described from the public structure of
 // https://puma.taipei/heart-island (policies.json, checked 2026-10-22). Coordinates are
 // pointy-top axial hexes (q, r); b is the island's policy item count. Flow text is our
-// own paraphrase, not the source copy.
+// own Traditional Chinese (Taiwan) paraphrase, not the source copy.
 
 export const islands = [
   { id: "civil", n: 1, en: "Civic core", zh: "市府核心", q: -1, r: 4, b: 6 },
@@ -30,41 +30,41 @@ export const ports = [
 
 // The source tags each flow with a story prop (energy, clock, folder…), which gives
 // 15 kinds for 20 flows. These six groups are our judgment call, chosen so each
-// resource has a network worth looking at.
+// resource has a network worth looking at. `short` labels the resource bar.
 export const resources = [
-  { id: "staff", key: "1", en: "Staff capacity", zh: "公務人力", blurb: "City staff time and skills that every other policy runs on." },
-  { id: "data", key: "2", en: "Data & research", zh: "數據研究", blurb: "Shared data, planning and AI tools moving between departments." },
-  { id: "knowhow", key: "3", en: "Know-how exchange", zh: "交流經驗", blurb: "Experience traded with other cities, schools and communities." },
-  { id: "care", key: "4", en: "Care & support", zh: "照顧支持", blurb: "Care, counseling and family programs delivered to residents." },
-  { id: "access", key: "5", en: "Access & benefits", zh: "通行福利", blurb: "Cards and points that let residents use services across the city." },
-  { id: "supply", key: "6", en: "Space & supply", zh: "空間供給", blurb: "Physical space, green cover and food that land in neighborhoods." },
+  { id: "staff", key: "1", en: "Staff capacity", zh: "公務人力", short: "人力", blurb: "市府同仁的時間與專業，是其他政策得以運轉的基礎。" },
+  { id: "data", key: "2", en: "Data & research", zh: "數據研究", short: "數據", blurb: "在各局處之間流動的資料、規劃與 AI 工具。" },
+  { id: "knowhow", key: "3", en: "Know-how exchange", zh: "交流經驗", short: "交流", blurb: "與其他城市、學校和社區互相交換的經驗。" },
+  { id: "care", key: "4", en: "Care & support", zh: "照顧支持", short: "照顧", blurb: "送到市民身邊的照顧、諮商與家庭支持。" },
+  { id: "access", key: "5", en: "Access & benefits", zh: "通行福利", short: "通行", blurb: "讓市民跨服務通用的卡片與點數。" },
+  { id: "supply", key: "6", en: "Space & supply", zh: "空間供給", short: "空間", blurb: "落在社區裡的空間、綠蔭與食物。" },
 ];
 
 // from/to may list several nodes; every from × to pair is one edge. two = two-way.
 export const flows = [
-  { id: "F1", res: "staff", from: ["civil"], to: ["institute", "transport", "education", "lunch", "family", "card", "welfare", "sport", "trails", "forest", "youth", "diplomacy", "hakka"], text: "Easing civil servants' workload first frees capacity for every other policy." },
-  { id: "F2", res: "staff", from: ["civil"], to: ["welfare"], text: "City hall pilots flexible hours and sets the example for family-friendly workplaces." },
-  { id: "F19", res: "staff", from: ["hakka"], to: ["civil"], text: "Hakka-language skills earn credit in city hiring for counter and 1999 hotline roles." },
+  { id: "F1", res: "staff", from: ["civil"], to: ["institute", "transport", "education", "lunch", "family", "card", "welfare", "sport", "trails", "forest", "youth", "diplomacy", "hakka"], text: "先減輕市府同仁的負擔，騰出推動其他政策的人力。" },
+  { id: "F2", res: "staff", from: ["civil"], to: ["welfare"], text: "市府率先擴大彈性上下班，為友善家庭的職場做示範。" },
+  { id: "F19", res: "staff", from: ["hakka"], to: ["civil"], text: "臨櫃與 1999 專線等職缺招募時，客語能力可以加分。" },
 
-  { id: "F3", res: "data", from: ["institute"], to: ["welfare", "transport", "education"], text: "The institute backs long-range planning for social care, transport and schools." },
-  { id: "F4", res: "data", from: ["education", "welfare", "police"], to: ["institute"], text: "School, social-services and police data feed a child-safety center." },
-  { id: "F12", res: "data", from: ["civil"], to: ["youth", "education"], two: true, text: "AI support services shared with young people, schools and city staff." },
+  { id: "F3", res: "data", from: ["institute"], to: ["welfare", "transport", "education"], text: "研究院為社福、交通與教育提供長期規劃支援。" },
+  { id: "F4", res: "data", from: ["education", "welfare", "police"], to: ["institute"], text: "學校、社政與警政資料匯流，支撐兒少安全工作。" },
+  { id: "F12", res: "data", from: ["civil"], to: ["youth", "education"], two: true, text: "AI 支援服務同時照顧青年、校園與市府同仁。" },
 
-  { id: "F5", res: "knowhow", from: ["diplomacy"], to: ["transport", "forest"], text: "Overseas experience in transport, urban forests and housing comes home." },
-  { id: "F6", res: "knowhow", from: ["transport", "education"], to: ["diplomacy"], two: true, text: "Safe-routes-to-school lessons traded with a sister city." },
-  { id: "F15", res: "knowhow", from: ["diplomacy"], to: ["youth"], two: true, text: "Youth programs join an international city network to train citizen diplomats." },
-  { id: "F17", res: "knowhow", from: ["hakka"], to: ["education"], text: "Taipei schools pair with Hakka-village schools for holiday visits." },
-  { id: "F20", res: "knowhow", from: ["hakka"], to: ["diplomacy"], text: "Hakka culture gets a seat at the city's international forum." },
+  { id: "F5", res: "knowhow", from: ["diplomacy"], to: ["transport", "forest"], text: "把海外在交通、都市林與住宅上的經驗帶回台北。" },
+  { id: "F6", res: "knowhow", from: ["transport", "education"], to: ["diplomacy"], two: true, text: "與姊妹市互相交流通學路安全的做法。" },
+  { id: "F15", res: "knowhow", from: ["diplomacy"], to: ["youth"], two: true, text: "青年計畫接上國際城市網絡，培養市民外交人才。" },
+  { id: "F17", res: "knowhow", from: ["hakka"], to: ["education"], text: "台北學校與客庄學校結盟，寒暑假互相拜訪。" },
+  { id: "F20", res: "knowhow", from: ["hakka"], to: ["diplomacy"], text: "讓客家文化在城市的國際論壇上發聲。" },
 
-  { id: "F8", res: "care", from: ["sport"], to: ["welfare", "community"], text: "Neighborhood exercise programs keep older residents active and connected." },
-  { id: "F10", res: "care", from: ["family"], to: ["education", "card"], two: true, text: "Parenting support, family education and shared learning move together." },
-  { id: "F11", res: "care", from: ["welfare", "family"], to: ["civil", "education"], two: true, text: "Mental-health support reaches from home and school into city workplaces." },
-  { id: "F16", res: "care", from: ["hakka"], to: ["welfare"], text: "Elder centers link into community care, with young and old learning together." },
+  { id: "F8", res: "care", from: ["sport"], to: ["welfare", "community"], text: "社區運動課程陪長輩動起來，也多些往來。" },
+  { id: "F10", res: "care", from: ["family"], to: ["education", "card"], two: true, text: "育兒支持、家庭教育與親子共學一起推進。" },
+  { id: "F11", res: "care", from: ["welfare", "family"], to: ["civil", "education"], two: true, text: "心理支持從家庭、校園一路延伸到市府職場。" },
+  { id: "F16", res: "care", from: ["hakka"], to: ["welfare"], text: "長輩據點串連社區照顧，讓老少一起學習。" },
 
-  { id: "F9", res: "access", from: ["card"], to: ["welfare"], two: true, text: "The family card links with the senior card so grandparents and kids go out together." },
-  { id: "F18", res: "access", from: ["hakka"], to: ["card", "trails"], text: "Hakka-language points on the city app lead residents into Hakka districts." },
+  { id: "F9", res: "access", from: ["card"], to: ["welfare"], two: true, text: "親子卡與敬老卡互通，祖孫可以一起出門。" },
+  { id: "F18", res: "access", from: ["hakka"], to: ["card", "trails"], text: "用台北通累積客語點數，引導市民走進客家街區。" },
 
-  { id: "F7", res: "supply", from: ["transport"], to: ["sport", "trails"], two: true, text: "Sport stations connect commuting, exercise and hiking." },
-  { id: "F13", res: "supply", from: ["forest"], to: ["sport"], two: true, text: "Micro-forests and sport spaces bring shade into neighborhoods." },
-  { id: "F14", res: "supply", from: ["farm"], to: ["lunch", "education"], text: "Local farmers supply school lunches and food education." },
+  { id: "F7", res: "supply", from: ["transport"], to: ["sport", "trails"], two: true, text: "運動驛站把通勤、運動和登山串在一起。" },
+  { id: "F13", res: "supply", from: ["forest"], to: ["sport"], two: true, text: "微森林結合運動空間，把綠蔭帶進社區。" },
+  { id: "F14", res: "supply", from: ["farm"], to: ["lunch", "education"], text: "在地小農供應校園午餐與食農教育。" },
 ];
