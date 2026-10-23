@@ -1,5 +1,8 @@
 # Policy Flows
 
+Live demo: https://josephlin.github.io/policy-flows/ (unofficial prototype, served by
+GitHub Pages from `main`).
+
 A prototype of an info-view map for a city's policy platform, modeled on the
 resource overlays in SimCity and Cities: Skylines. Each policy is a hex island, and
 a resource bar picks one network (staff, data, know-how, care, access, space and
@@ -22,3 +25,10 @@ There are two views over the same data and side panel (`ui.js`):
 
 There's no build step. Run `python3 serve.py`, then open http://localhost:5178. Any
 static server works, but this one disables browser caching, so edits show on reload.
+
+## Hosting
+
+GitHub Pages serves the repo root of `main` as-is; `.nojekyll` stops Jekyll from
+processing the files. A push to `main` redeploys the public site, so changes go
+through a branch and PR from here on. `build_artifact.py` is only for the private
+claude.ai artifact copy.
