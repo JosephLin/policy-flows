@@ -102,7 +102,8 @@ function render() {
 // ---- tooltip -----------------------------------------------------------------
 const tip = $("#tip");
 
-export function showTip(id, clientX, clientY) {
+// With `item`, the tip names that policy item instead of summarizing the island.
+export function showTip(id, clientX, clientY, item) {
   const n = nodes.get(id);
   const r = state.res && resById.get(state.res);
   let body;
@@ -120,7 +121,9 @@ export function showTip(id, clientX, clientY) {
       .map(([x, k]) => `<li><span style="color:var(--${x.id})">●</span> ${x.zh}：${k} 條路線</li>`)
       .join("") || "<li>沒有流動</li>";
   }
-  tip.innerHTML = `<b>${n.zh}</b>${n.port ? ' <span class="zh">對外連結</span>' : ""}<ul>${body}</ul>`;
+  tip.innerHTML = item
+    ? `<b>${item}</b><div class="zh">${n.zh} · 政策項目</div>`
+    : `<b>${n.zh}</b>${n.port ? ' <span class="zh">對外連結</span>' : ""}<ul>${body}</ul>`;
   tip.hidden = false;
   const box = $("#stage").getBoundingClientRect();
   const x = clientX - box.left + 14, y = clientY - box.top + 14;
@@ -198,7 +201,7 @@ function renderPanel(r, out, inn) {
           return `<li data-res="${x.id}" style="--c:var(--${x.id})"><b>${x.zh}</b><div class="route">${n} 條流動 · 按鍵 ${x.key}</div></li>`;
         })
         .join("")}</ul>
-      <p class="note">按 1–6 選資源，按 0 看全部；再點一次同一個按鈕或按鍵就關閉，Esc 也會關閉。點一座島，看它送出和接收什麼。</p>`;
+      <p class="note">按 1–6 選資源，按 0 看全部；再點一次同一個按鈕或按鍵就關閉，Esc 也會關閉。點一座島，看它送出和接收什麼；把游標移到島上的小模型，可看它代表的政策。</p>`;
   }
   html += `${hooks.footer ? `<p class="note">${hooks.footer}</p>` : ""}${ABOUT}`;
   panel.innerHTML = html;
