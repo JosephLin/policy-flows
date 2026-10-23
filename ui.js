@@ -261,5 +261,18 @@ export function initUI(h) {
   });
   panel.addEventListener("pointerleave", () => hover(null, null));
 
+  // On load, tour resources 1–6 every 3 s, looping, until the viewer does anything at all.
+  const STOP_ON = ["pointerdown", "keydown", "wheel", "touchstart"];
+  state.res = resources[0].id;
+  const tour = setInterval(() => {
+    const i = resources.findIndex((r) => r.id === state.res);
+    set({ res: resources[(i + 1) % resources.length].id });
+  }, 3000);
+  const stop = () => {
+    clearInterval(tour);
+    for (const t of STOP_ON) removeEventListener(t, stop, true);
+  };
+  for (const t of STOP_ON) addEventListener(t, stop, { capture: true, passive: true });
+
   render();
 }
