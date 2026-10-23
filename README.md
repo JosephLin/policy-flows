@@ -19,7 +19,9 @@ There are two views over the same data and side panel (`ui.js`):
 - `index.html` / `scene.js`: a 3D diorama in Three.js (pinned on jsDelivr via an
   import map). Islands, landmarks, roads and bridges are procedural. Lanes arc
   between islands, and people carrying resource-colored crates walk each lane's
-  route over the bridges.
+  route over the bridges. `env.js` draws the surroundings: sky, sea, the hills of
+  the basin, clouds, boats and wind turbines. The dark theme is dusk, with lit
+  windows and street lamps.
 - `flat.html` / `flat.js`: the original flat SVG hex map, also the fallback when
   WebGL is unavailable.
 

@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
 import { nodes, lanes, resources, state, set, initUI, activeLanes, roleOf, showTip, hideTip } from "./ui.js";
+import { createEnv } from "./env.js";
 
 const host = document.querySelector("#world");
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
@@ -24,6 +25,8 @@ try {
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// Neutral tone mapping softens highlights without shifting the resource colors.
+renderer.toneMapping = THREE.NeutralToneMapping;
 host.appendChild(renderer.domElement);
 const labelRenderer = new CSS2DRenderer();
 labelRenderer.domElement.className = "labels";
@@ -48,22 +51,30 @@ Object.assign(sun.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near:
 sun.shadow.normalBias = 0.02;
 scene.add(hemi, sun);
 
-const water = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshStandardMaterial({ roughness: 0.35 }));
-water.rotation.x = -Math.PI / 2;
-water.receiveShadow = true;
-scene.add(water);
-const shoalMat = new THREE.MeshStandardMaterial({ roughness: 0.6 });
+sun.shadow.intensity = 0.8;
+const env = createEnv(scene, { css, isDark });
 
 // ---- materials that tint for the info view -----------------------------------
 // Every island material is registered with its base color; render() sets a target and
 // the frame loop eases toward it. `key` entries re-read their base from CSS on theme change.
 const tints = new Map(); // island id -> [{ m, base, target, key }]
+const matCache = new Map();
 function mat(id, color, key) {
+  const k = `${id}|${key || color}`;
+  if (matCache.has(k)) return matCache.get(k);
   const m = new THREE.MeshStandardMaterial({ color: key ? css(key) : color, roughness: 0.85, flatShading: true });
-  const e = { m, base: m.color.clone(), target: m.color.clone(), key };
-  tints.get(id).push(e);
+  tints.get(id).push({ m, base: m.color.clone(), target: m.color.clone(), key });
+  matCache.set(k, m);
   return m;
 }
+// Windows and street lamps glow at dusk (dark theme); applyTheme sets their emissive.
+const glowing = [];
+const winMat = (id) => {
+  const m = mat(id, "#4a5a6c");
+  if (!glowing.includes(m)) glowing.push(m);
+  return m;
+};
+const lampMat = new THREE.MeshStandardMaterial({ color: "#fff4d8", emissive: "#ffc66e", emissiveIntensity: 0 });
 
 const G = {
   box: new THREE.BoxGeometry(1, 1, 1),
@@ -73,6 +84,12 @@ const G = {
   trunk: new THREE.CylinderGeometry(0.035, 0.045, 1, 6),
   cyl: new THREE.CylinderGeometry(1, 1, 1, 16),
   arrow: new THREE.ConeGeometry(0.1, 0.26, 12),
+  // A triangular prism, ridge along x, base on y = 0, sized 1 × 1 × 1.
+  gable: new THREE.CylinderGeometry(1, 1, 1, 3).rotateY(Math.PI / 2).rotateZ(Math.PI / 2).translate(0, 0.5, 0).scale(1, 1 / 1.5, 1 / Math.sqrt(3)),
+  blob: new THREE.IcosahedronGeometry(1, 1),
+  petal: new THREE.SphereGeometry(0.016, 6, 4),
+  lampHead: new THREE.SphereGeometry(0.02, 10, 6),
+  pebble: new THREE.IcosahedronGeometry(1, 0),
   dot: new THREE.SphereGeometry(0.06, 12, 8),
 };
 
@@ -99,19 +116,50 @@ function mesh(g, geo, m, x, y, z, sx, sy, sz) {
   g.add(o);
   return o;
 }
-function house(g, id, top, x, z, w, d, h, wall, roof, rot = 0) {
+// A building with a window band per storey on its long faces, a door, and a hip,
+// gable or flat roof (flat ones get a rooftop box).
+function house(g, id, top, x, z, w, d, h, wall, roof, rot = 0, kind = "hip") {
   const p = new THREE.Group();
   p.position.set(x, top, z);
   p.rotation.y = rot;
   mesh(p, G.box, mat(id, wall), 0, h / 2, 0, w, h, d);
-  mesh(p, G.roof, mat(id, roof), 0, h + 0.07, 0, w * 1.12, 0.14, d * 1.12);
+  const floors = Math.max(1, Math.round(h / 0.1)), band = Math.min(0.034, (h / floors) * 0.45);
+  for (let f = 0; f < floors; f++)
+    for (const s of [-1, 1]) mesh(p, G.box, winMat(id), 0, (h / floors) * (f + 0.55), s * (d / 2 + 0.002), w * 0.74, band, 0.004);
+  mesh(p, G.box, mat(id, "#7b5a40"), w * 0.22, 0.035, d / 2 + 0.003, Math.min(0.04, w * 0.2), 0.07, 0.004);
+  if (kind === "gable") mesh(p, G.gable, mat(id, roof), 0, h, 0, w * 1.1, 0.11, d * 1.14);
+  else if (kind === "flat") {
+    mesh(p, G.box, mat(id, "#d8d1c4"), 0, h + 0.012, 0, w * 1.04, 0.024, d * 1.04);
+    mesh(p, G.box, mat(id, roof), w * 0.18, h + 0.05, -d * 0.12, w * 0.32, 0.055, d * 0.32);
+  } else mesh(p, G.roof, mat(id, roof), 0, h + 0.07, 0, w * 1.12, 0.14, d * 1.12);
   g.add(p);
 }
+// Layered pines and round, three-blob broadleaves, each turned a little differently.
 function tree(g, id, top, x, z, s, rand) {
-  mesh(g, G.trunk, mat(id, "#7a5a3f"), x, top + 0.06 * s, z, s, 0.12 * s, s);
+  const t = new THREE.Group();
+  t.position.set(x, top, z);
+  t.rotation.y = rand() * Math.PI * 2;
+  g.add(t);
+  mesh(t, G.trunk, mat(id, "#7a5a3f"), 0, 0.06 * s, 0, s, 0.12 * s, s);
   const leaf = mat(id, LEAVES[Math.floor(rand() * LEAVES.length)]);
-  if (rand() < 0.6) mesh(g, G.pine, leaf, x, top + (0.12 + 0.17) * s, z, 0.13 * s, 0.34 * s, 0.13 * s);
-  else mesh(g, G.bush, leaf, x, top + 0.22 * s, z, 0.13 * s, 0.13 * s, 0.13 * s);
+  if (rand() < 0.5) {
+    mesh(t, G.pine, leaf, 0, 0.2 * s, 0, 0.15 * s, 0.22 * s, 0.15 * s);
+    mesh(t, G.pine, leaf, 0, 0.33 * s, 0, 0.105 * s, 0.2 * s, 0.105 * s);
+  } else {
+    mesh(t, G.blob, leaf, 0, 0.23 * s, 0, 0.12 * s, 0.11 * s, 0.12 * s);
+    mesh(t, G.blob, leaf, 0.065 * s, 0.18 * s, 0.03 * s, 0.08 * s, 0.075 * s, 0.08 * s);
+    mesh(t, G.blob, leaf, -0.055 * s, 0.19 * s, -0.04 * s, 0.08 * s, 0.07 * s, 0.08 * s);
+  }
+}
+function lamp(g, id, top, x, z) {
+  mesh(g, G.trunk, mat(id, "#4a4a50"), x, top + 0.09, z, 0.4, 0.18, 0.4);
+  mesh(g, G.lampHead, lampMat, x, top + 0.19, z, 1, 1, 1);
+}
+const PETALS = ["#e86a8a", "#f2c14e", "#fbf6ee", "#b77fe0", "#ef8a4b"];
+function flowers(g, id, top, x, z, rand) {
+  mesh(g, G.blob, mat(id, "#6f9c55"), x, top + 0.01, z, 0.07, 0.02, 0.07);
+  for (let k = 0; k < 6; k++)
+    mesh(g, G.petal, mat(id, PETALS[Math.floor(rand() * PETALS.length)]), x + (rand() - 0.5) * 0.11, top + 0.026, z + (rand() - 0.5) * 0.11, 1, 1, 1);
 }
 
 // A landmark per island so each policy reads at a glance. Returns its footprint
@@ -255,6 +303,12 @@ const edgeLocal = (n, k) => {
   const a = (Math.PI / 3) * k + Math.PI / 6;
   return [Math.sin(a) * EDGE(n), Math.cos(a) * EDGE(n)];
 };
+// A pointy-top hexagon in the xy plane that, after rotateX(-π/2), lines up with the
+// island's hex (corner toward -z).
+function hexShape(r) {
+  return new THREE.Shape(Array.from({ length: 6 }, (_, k) => new THREE.Vector2(Math.sin((Math.PI / 3) * k) * r, Math.cos((Math.PI / 3) * k) * r)));
+}
+const CAP = { depth: 0.06, bevel: 0.035 };
 function slab(parent, m, p1, p2, w, h = 0.008) {
   const o = new THREE.Mesh(G.box, m);
   o.position.copy(p1).add(p2).multiplyScalar(0.5);
@@ -272,13 +326,19 @@ for (const n of nodes.values()) {
   g.position.set(n.x - cx, 0, n.y - cz);
   world.add(g);
 
-  const cliff = mat(n.id, null, "--cliff"), ground = mat(n.id, null, "--ground");
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(R, R * 1.06, H, 6), [cliff, ground, cliff]);
-  body.position.y = H / 2 - 0.12;
-  g.add(body);
-  const shoal = new THREE.Mesh(new THREE.CylinderGeometry(R * 1.2, R * 1.2, 0.02, 6), shoalMat);
-  shoal.position.y = 0.005;
-  g.add(shoal);
+  // A beveled grass-and-earth cap on a rock base that tapers into the water.
+  const earth = mat(n.id, null, "--cliff"), ground = mat(n.id, null, "--ground"), rock = mat(n.id, null, "--rock");
+  const cap = new THREE.ExtrudeGeometry(hexShape(R - CAP.bevel), { depth: CAP.depth, bevelEnabled: true, bevelSize: CAP.bevel, bevelThickness: CAP.bevel, bevelSegments: 2 }).rotateX(-Math.PI / 2);
+  const capMesh = new THREE.Mesh(cap, [ground, earth]);
+  capMesh.position.y = top - CAP.depth - CAP.bevel;
+  g.add(capMesh);
+  const baseTop = top - CAP.depth - CAP.bevel * 2 + 0.01, baseH = baseTop + 0.5;
+  mesh(g, new THREE.CylinderGeometry(R * 0.98, R * 0.84, baseH, 6), rock, 0, baseTop - baseH / 2, 0, 1, 1, 1);
+  for (let k = 0; k < (n.port ? 2 : 4); k++) {
+    const a = rand() * Math.PI * 2, rr = R * (0.92 + rand() * 0.1), s = 0.05 + rand() * 0.06;
+    mesh(g, G.pebble, rock, Math.sin(a) * rr, 0.01, Math.cos(a) * rr, s, s * 0.7, s);
+  }
+  env.foam(g.position.x, g.position.z, R);
 
   const accent = ROOFS[(n.n || 3) % ROOFS.length];
   LANDMARKS[n.id](g, n.id, top, accent, rand);
@@ -287,6 +347,12 @@ for (const n of nodes.values()) {
   const at = ([x, z]) => new THREE.Vector3(x, top + 0.004, z);
   for (let k = 0; k < 6; k++) slab(g, road, at(ringLocal(n, 2 * k)), at(ringLocal(n, 2 * k + 2)), 0.07);
   for (const { k } of nbrs.get(n.id)) slab(g, road, at(ringLocal(n, 2 * k + 1)), at(edgeLocal(n, k)), 0.07);
+  // Street lamps just outside the ring road, stepped aside where a spoke leaves it.
+  if (!n.port)
+    for (let k = 0; k < 6; k++) {
+      const a = (Math.PI / 3) * k + Math.PI / 6 + (bridged(n.id, k) ? 0.2 : 0), r = RING(n) * Math.cos(Math.PI / 6) + 0.07;
+      lamp(g, n.id, top, Math.sin(a) * r, Math.cos(a) * r);
+    }
 
   if (!n.port) {
     // Plots sit outside the ring road: houses in the corners, trees on edges without a bridge.
@@ -300,16 +366,20 @@ for (const n of nodes.values()) {
       const x = Math.sin(a) * r + (rand() - 0.5) * 0.04, z = Math.cos(a) * r + (rand() - 0.5) * 0.04;
       if (corner && houses-- > 0) {
         const w = 0.13 + rand() * 0.06, h = 0.12 + rand() * 0.16;
-        house(g, n.id, top, x, z, w, w * (0.8 + rand() * 0.4), h, WALLS[Math.floor(rand() * WALLS.length)], rand() < 0.5 ? accent : ROOFS[Math.floor(rand() * ROOFS.length)], a);
-      } else if (rand() < 0.85) tree(g, n.id, top, x, z, 0.7 + rand() * 0.5, rand);
+        const kind = h > 0.22 ? "flat" : rand() < 0.5 ? "gable" : "hip";
+        house(g, n.id, top, x, z, w, w * (0.8 + rand() * 0.4), h, WALLS[Math.floor(rand() * WALLS.length)], rand() < 0.5 ? accent : ROOFS[Math.floor(rand() * ROOFS.length)], a, kind);
+      } else {
+        const pick = rand();
+        if (pick < 0.6) tree(g, n.id, top, x, z, 0.7 + rand() * 0.5, rand);
+        else if (pick < 0.9) flowers(g, n.id, top, x, z, rand);
+      }
     }
   }
 
   g.traverse((o) => {
     o.userData.id = n.id;
-    if (o.isMesh && o !== shoal) o.castShadow = o.receiveShadow = true;
+    if (o.isMesh) o.castShadow = o.receiveShadow = true;
   });
-  shoal.receiveShadow = true;
   pickables.push(g);
 
   const div = document.createElement("div");
@@ -380,10 +450,10 @@ function drawLanes() {
     const faded = dim && !l.hi, color = colors.get(l.res);
     const tube = new THREE.Mesh(
       new THREE.TubeGeometry(curve, 48, 0.026, 6),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.18 : 0.55, depthWrite: false }),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.18 : 0.55, depthWrite: false, toneMapped: false }),
     );
     laneGroup.add(tube);
-    const arrow = new THREE.Mesh(G.arrow, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.33 : 1 }));
+    const arrow = new THREE.Mesh(G.arrow, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.33 : 1, toneMapped: false }));
     arrow.position.copy(end);
     arrow.quaternion.setFromUnitVectors(UP, curve.getTangentAt(1));
     laneGroup.add(arrow);
@@ -391,7 +461,7 @@ function drawLanes() {
     // Bulbs travel the arc toward the arrowhead, so direction reads at a glance.
     if (faded) continue;
     const len = curve.getLength(), count = Math.max(1, Math.round(len * 1.2));
-    const bulb = new THREE.MeshBasicMaterial({ color });
+    const bulb = new THREE.MeshBasicMaterial({ color, toneMapped: false });
     for (let k = 0; k < count; k++) {
       const m = new THREE.Mesh(G.dot, bulb);
       laneGroup.add(m);
@@ -459,7 +529,7 @@ function crowd(geo, m) {
 }
 const bodies = crowd(new THREE.CapsuleGeometry(0.026, 0.05, 3, 8).translate(0, 0.051, 0), new THREE.MeshStandardMaterial({ roughness: 0.8 }));
 const heads = crowd(new THREE.SphereGeometry(0.027, 10, 8).translate(0, 0.128, 0), new THREE.MeshStandardMaterial({ roughness: 0.7 }));
-const crates = crowd(new THREE.BoxGeometry(0.05, 0.04, 0.05).translate(0, 0.18, 0), new THREE.MeshBasicMaterial());
+const crates = crowd(new THREE.BoxGeometry(0.05, 0.04, 0.05).translate(0, 0.18, 0), new THREE.MeshBasicMaterial({ toneMapped: false }));
 
 const residents = [];
 for (const n of nodes.values()) {
@@ -563,16 +633,20 @@ function onRender(r, out, inn) {
 }
 
 // ---- theme -------------------------------------------------------------------
+// Light theme is a warm afternoon; dark is dusk, with windows and street lamps lit.
 function applyTheme() {
-  const sky = new THREE.Color(css("--sky"));
-  scene.background = sky;
-  scene.fog = new THREE.Fog(sky, 24, 60);
-  water.material.color.set(css("--water"));
-  shoalMat.color.set(css("--water")).lerp(new THREE.Color("#ffffff"), isDark() ? 0.08 : 0.35);
-  hemi.color.set(isDark() ? "#9fb3d1" : "#ffffff");
-  hemi.groundColor.set(isDark() ? "#1b2230" : "#b9aa90");
-  hemi.intensity = isDark() ? 0.9 : 1.5;
-  sun.intensity = isDark() ? 1.3 : 2.3;
+  const dusk = isDark();
+  env.applyTheme();
+  hemi.color.set(dusk ? "#8ea3cf" : "#fff8ee");
+  hemi.groundColor.set(dusk ? "#1d2433" : "#b7a98c");
+  hemi.intensity = dusk ? 0.85 : 1.45;
+  sun.color.set(dusk ? "#c9b6ff" : "#fff0d8");
+  sun.intensity = dusk ? 1.0 : 2.5;
+  for (const m of glowing) {
+    m.emissive.set("#ffcf86");
+    m.emissiveIntensity = dusk ? 0.85 : 0;
+  }
+  lampMat.emissiveIntensity = dusk ? 2.2 : 0.15;
   for (const list of tints.values())
     for (const e of list)
       if (e.key) {
@@ -628,8 +702,11 @@ new ResizeObserver(resize).observe(host);
 resize();
 
 const clock = new THREE.Clock();
+let last = 0;
 renderer.setAnimationLoop(() => {
-  const t = clock.getElapsedTime();
+  const t = clock.getElapsedTime(), dt = Math.min(0.1, t - last);
+  last = t;
+  env.update(reduced.matches ? 0 : t, reduced.matches ? 0 : dt);
   for (const v of movers) {
     const u = reduced.matches ? (v.k + 0.5) / v.count : ((t * 0.6) / v.len + v.k / v.count) % 1;
     v.m.position.copy(v.curve.getPointAt(u));
