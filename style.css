@@ -181,13 +181,9 @@ svg.info .pips { display: none; }
 #bar button svg { width: 22px; height: 22px; color: var(--c, var(--ink)); }
 #bar button.on svg { color: #fff; }
 #bar kbd { position: absolute; top: 3px; right: 6px; font: 600 9px ui-monospace, monospace; opacity: .55; }
-#bar .seg {
-  display: grid; align-content: center; gap: 4px; margin-left: 4px; padding: 0 4px 0 12px;
-  border-left: 1px solid var(--card-edge); font-size: 10.5px; color: var(--muted);
-}
-#bar .seg > div { display: flex; gap: 2px; }
-#bar .seg button { display: block; min-width: 0; padding: 4px 9px; border-radius: 7px; font-size: 11.5px; white-space: nowrap; }
-#bar .seg button.on { background: var(--ink); color: var(--card); }
+#bar .togs { display: flex; gap: 4px; margin-left: 4px; padding-left: 8px; border-left: 1px solid var(--card-edge); }
+#bar .tog.on { background: var(--ink); color: var(--card); }
+#bar .tog.on svg { color: var(--card); }
 
 /* side panel */
 #panel { background: var(--card); border-left: 1px solid var(--card-edge); overflow-y: auto; padding: 22px 20px 40px; }
