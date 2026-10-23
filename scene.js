@@ -14,6 +14,15 @@ const isDark = () => {
   return t ? t === "dark" : dark.matches;
 };
 
+// The scene keeps its own day and night palettes, so the 夜晚 toggle works in either
+// page theme; it starts out matching the theme. Resource colors still come from CSS.
+const PALETTE = {
+  day: { "--sky": "#eaf1ec", "--sky-top": "#9cc6dc", "--sea": "#74aebd", "--ground": "#bdd29a", "--ground-off": "#dad8d3", "--cliff": "#c8a77c", "--rock": "#9b9285" },
+  night: { "--sky": "#2c3549", "--sky-top": "#0b1120", "--sea": "#2a4c5f", "--ground": "#556b48", "--ground-off": "#3b3c3f", "--cliff": "#5e4b38", "--rock": "#4b4842" },
+};
+state.night = isDark();
+const tone = (key) => PALETTE[state.night ? "night" : "day"][key] ?? css(key);
+
 // ---- renderer, camera, light -------------------------------------------------
 let renderer;
 try {
@@ -52,7 +61,7 @@ sun.shadow.normalBias = 0.02;
 scene.add(hemi, sun);
 
 sun.shadow.intensity = 0.8;
-const env = createEnv(scene, { css, isDark });
+const env = createEnv(scene, { css: tone, isDark: () => state.night });
 
 // ---- materials that tint for the info view -----------------------------------
 // Every island material is registered with its base color; render() sets a target and
@@ -62,7 +71,7 @@ const matCache = new Map();
 function mat(id, color, key) {
   const k = `${id}|${key || color}`;
   if (matCache.has(k)) return matCache.get(k);
-  const m = new THREE.MeshStandardMaterial({ color: key ? css(key) : color, roughness: 0.85, flatShading: true });
+  const m = new THREE.MeshStandardMaterial({ color: key ? tone(key) : color, roughness: 0.85, flatShading: true });
   tints.get(id).push({ m, base: m.color.clone(), target: m.color.clone(), key });
   matCache.set(k, m);
   return m;
@@ -545,7 +554,7 @@ for (const n of nodes.values()) {
 
 let people = [];
 function buildPeople(list, dim) {
-  const rand = rng(`${state.res}-${state.focus}`), gray = new THREE.Color(css("--ground-off"));
+  const rand = rng(`${state.res}-${state.focus}`), gray = new THREE.Color(tone("--ground-off"));
   const carriers = [];
   for (const l of state.people ? list : []) {
     const route = routeFor(l.a, l.b, rand);
@@ -609,8 +618,9 @@ const GRAY = (c, off) => {
 };
 
 function onRender(r, out, inn) {
+  if (state.night !== litNight) light();
   host.classList.toggle("info", !!r);
-  const off = new THREE.Color(css("--ground-off"));
+  const off = new THREE.Color(tone("--ground-off"));
   const rc = r && new THREE.Color(css(`--${r.id}`));
   for (const [id, isl] of islands) {
     const { role, label } = roleOf(id, out, inn, r);
@@ -633,9 +643,10 @@ function onRender(r, out, inn) {
 }
 
 // ---- theme -------------------------------------------------------------------
-// Light theme is a warm afternoon; dark is dusk, with windows and street lamps lit.
-function applyTheme() {
-  const dusk = isDark();
+// Day is a warm afternoon; night is dusk, with windows and street lamps lit.
+let litNight = null;
+function light() {
+  const dusk = (litNight = state.night);
   env.applyTheme();
   hemi.color.set(dusk ? "#8ea3cf" : "#fff8ee");
   hemi.groundColor.set(dusk ? "#1d2433" : "#b7a98c");
@@ -650,9 +661,13 @@ function applyTheme() {
   for (const list of tints.values())
     for (const e of list)
       if (e.key) {
-        e.base.set(css(e.key));
+        e.base.set(tone(e.key));
         e.m.color.copy(e.base);
       }
+}
+// A page theme change only affects resource colors; the scene keeps its own time of day.
+function applyTheme() {
+  light();
   set({});
 }
 dark.addEventListener("change", applyTheme);

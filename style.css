@@ -16,14 +16,6 @@
   --care: #cf3f74;
   --access: #c48a0c;
   --supply: #2a9356;
-  /* 3D scene */
-  --sky: #eaf1ec;
-  --sky-top: #9cc6dc;
-  --sea: #74aebd;
-  --ground: #bdd29a;
-  --ground-off: #dad8d3;
-  --cliff: #c8a77c;
-  --rock: #9b9285;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -44,13 +36,6 @@
     --care: #ec6c9a;
     --access: #e8b134;
     --supply: #4cc07c;
-    --sky: #2c3549;
-    --sky-top: #0b1120;
-    --sea: #2a4c5f;
-    --ground: #556b48;
-    --ground-off: #3b3c3f;
-    --cliff: #5e4b38;
-    --rock: #4b4842;
     color-scheme: dark;
   }
 }
@@ -72,13 +57,6 @@
   --care: #ec6c9a;
   --access: #e8b134;
   --supply: #4cc07c;
-  --sky: #2c3549;
-  --sky-top: #0b1120;
-  --sea: #2a4c5f;
-  --ground: #556b48;
-  --ground-off: #3b3c3f;
-  --cliff: #5e4b38;
-  --rock: #4b4842;
   color-scheme: dark;
 }
 
