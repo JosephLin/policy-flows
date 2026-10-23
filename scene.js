@@ -615,7 +615,35 @@ const P = {
   armL: crowd(new THREE.CapsuleGeometry(0.012, 0.03, 4, 8).translate(0, -0.027, 0), soft()),
   armR: crowd(new THREE.CapsuleGeometry(0.012, 0.03, 4, 8).translate(0, -0.027, 0), soft()),
   crate: crowd(new RoundedBoxGeometry(0.065, 0.05, 0.05, 2, 0.008).translate(0, 0.105, 0.075), new THREE.MeshBasicMaterial({ toneMapped: false })),
+  // Role accessories, each hidden (zero-scaled) on people who don't wear it.
+  hat: crowd(mergeGeometries([new THREE.CylinderGeometry(0.066, 0.066, 0.006, 22).translate(0, 0.226, 0), new THREE.CylinderGeometry(0.038, 0.044, 0.034, 18).translate(0, 0.245, 0)]), soft()),
+  pack: crowd(new RoundedBoxGeometry(0.056, 0.064, 0.032, 2, 0.01).translate(0, 0.1, -0.046), soft()),
+  tie: crowd(new THREE.BoxGeometry(0.011, 0.036, 0.004).translate(0, 0.098, 0.0335), soft()),
+  coat: crowd(new THREE.CylinderGeometry(0.035, 0.043, 0.036, 16).translate(0, 0.058, 0), soft()),
+  cane: crowd(new THREE.CylinderGeometry(0.0045, 0.0045, 0.11, 6).translate(0.058, 0.055, 0.02), new THREE.MeshStandardMaterial({ color: "#7a5a3f", roughness: 0.8 })),
 };
+
+// Each flow's carriers dress for its kind of work. Residents are a mix of adults,
+// children and elders.
+const ROLES = {
+  staff: { clothes: ["#dfe9f5", "#f4f1ea"], pants: ["#2f3a4f", "#3b4a6b"], tie: ["#3f5a8a", "#a8443f", "#2e6b5a"] }, // office workers
+  data: { clothes: ["#f6f6f3"], pants: ["#4a5560", "#5a6470"], coat: true }, // researchers in lab coats
+  knowhow: { clothes: CLOTHES, pants: PANTS, pack: ["#c8643c", "#3f7f8c", "#6b8f3a"], hat: ["#f1ead8", "#d9e4ea"] }, // travelers
+  care: { scrubs: ["#bfe3dc", "#f4c9d6", "#c9d8f2"] }, // caregivers in matching scrubs
+  access: { clothes: CLOTHES, pants: PANTS, child: true }, // a parent walking with a child
+  supply: { clothes: ["#7fa35a", "#c98f4a", "#e2b23a"], pants: ["#5a4636", "#3b4a6b"], hat: ["#e6c97a"] }, // farmers in straw hats
+};
+const GRAY_HAIR = ["#d9d6cf", "#bfbab0", "#ece9e2"];
+function dress(role, rand, tint) {
+  const r = ROLES[role] || {}, scrub = r.scrubs && pickColor(r.scrubs, rand);
+  return {
+    clothes: scrub || pickColor(r.clothes || CLOTHES, rand).lerp(tint, r.tie || r.coat ? 0 : 0.25),
+    pants: scrub ? scrub.clone() : pickColor(r.pants || PANTS, rand),
+    skin: pickColor(SKIN, rand), hair: pickColor(HAIR, rand),
+    hat: r.hat ? pickColor(r.hat, rand) : null, pack: r.pack ? pickColor(r.pack, rand) : null,
+    tie: r.tie ? pickColor(r.tie, rand) : null, coat: !!r.coat, cane: false, scale: 1,
+  };
+}
 const HIP = 0.06, HIP_X = 0.017, SHOULDER = 0.118, SHOULDER_X = 0.044;
 
 const residents = [];
@@ -623,11 +651,14 @@ for (const n of nodes.values()) {
   const rand = rng(`${n.id}-people`), pts = [];
   for (let i = 0; i <= 12; i++) pts.push(ringPt(n.id, i % 12));
   const loop = measure(pts, true);
-  for (let k = 0; k < (n.port ? 1 : 4); k++)
-    residents.push({
-      route: loop, phase: rand(), speed: (rand() < 0.5 ? 1 : -1) * (0.12 + rand() * 0.08), off: 0.02,
-      clothes: pickColor(CLOTHES, rand), skin: pickColor(SKIN, rand), pants: pickColor(PANTS, rand), hair: pickColor(HAIR, rand),
-    });
+  for (let k = 0; k < (n.port ? 1 : 4); k++) {
+    const look = dress(null, rand, new THREE.Color()), age = rand();
+    // About a quarter are children and a fifth are elders, who walk slower with a cane.
+    if (age < 0.25) look.scale = 0.66;
+    else if (age < 0.45) Object.assign(look, { cane: true, hair: pickColor(GRAY_HAIR, rand) });
+    else if (rand() < 0.2) look.hat = pickColor(["#f1ead8", "#e6c97a", "#d9e4ea"], rand);
+    residents.push({ ...look, route: loop, phase: rand(), speed: (rand() < 0.5 ? 1 : -1) * (0.12 + rand() * 0.08) * (look.cane ? 0.6 : 1), off: 0.02 });
+  }
 }
 
 let people = [];
@@ -638,22 +669,26 @@ function buildPeople(list, dim) {
     const route = routeFor(l.a, l.b, rand);
     if (!route) continue;
     const color = new THREE.Color(css(`--${l.res}`)), count = Math.max(2, Math.min(6, Math.round(route.len / 1.1)));
-    for (let k = 0; k < count; k++)
-      carriers.push({
-        route, phase: (k + rand() * 0.6) / count, speed: 0.26 + rand() * 0.1, off: 0.03 + rand() * 0.015,
-        clothes: pickColor(CLOTHES, rand).lerp(color, 0.35), skin: pickColor(SKIN, rand), pants: pickColor(PANTS, rand), hair: pickColor(HAIR, rand),
-        crate: color, hidden: dim && !l.hi,
-      });
+    for (let k = 0; k < count; k++) {
+      const c = { ...dress(l.res, rand, color), route, phase: (k + rand() * 0.6) / count, speed: 0.26 + rand() * 0.1, off: 0.03 + rand() * 0.015, crate: color, hidden: dim && !l.hi };
+      carriers.push(c);
+      // 通行 carriers walk with a child a step behind them.
+      if (ROLES[l.res]?.child) carriers.push({ ...dress(null, rand, color), scale: 0.66, route, phase: c.phase - 0.2 / route.len, speed: c.speed, off: c.off, hidden: c.hidden });
+    }
   }
   people = residents.concat(carriers).slice(0, MAX_PEOPLE);
   people.forEach((p, i) => {
-    // In an info view, residents fade to gray so the carriers read as the network.
-    const shirt = state.res && state.res !== "all" && !p.crate ? gray : p.clothes;
-    for (const part of [P.torso, P.armL, P.armR]) part.setColorAt(i, shirt);
+    // In an info view, residents (on a ring-road loop) fade to gray; carriers and their children don't.
+    const quiet = state.res && state.res !== "all" && p.route.loop;
+    const shirt = quiet ? gray : p.clothes;
+    for (const part of [P.torso, P.armL, P.armR, P.coat]) part.setColorAt(i, shirt);
     for (const part of [P.legL, P.legR]) part.setColorAt(i, p.pants);
     P.head.setColorAt(i, p.skin);
     P.hair.setColorAt(i, p.hair);
     P.crate.setColorAt(i, p.crate || p.clothes);
+    P.hat.setColorAt(i, quiet ? gray : p.hat || gray);
+    P.pack.setColorAt(i, p.pack || gray);
+    P.tie.setColorAt(i, p.tie || gray);
   });
   for (const o of Object.values(P)) {
     o.count = people.length;
@@ -689,15 +724,21 @@ function stepPeople(t) {
     _p.y += islands.get(a.id).g.position.y + Math.abs(Math.cos(stride)) * 0.008;
     const fade = loop ? 1 : Math.min(1, s / 0.12, (len - s) / 0.12);
     _q.setFromAxisAngle(UP, Math.atan2(dx, dz));
-    _s.setScalar(w.hidden ? 0 : Math.max(0, fade));
+    _s.setScalar(w.hidden ? 0 : w.scale * Math.max(0, fade));
     _m.compose(_p, _q, _s);
     for (const part of [P.torso, P.head, P.hair, P.eyes]) part.setMatrixAt(i, _m);
     limb(P.legL, i, -HIP_X, HIP, swing);
     limb(P.legR, i, HIP_X, HIP, -swing);
-    // Carriers hold their crate out front with both arms; others swing theirs.
+    // Carriers hold their crate out front with both arms; elders keep a hand on the
+    // cane; everyone else swings their arms.
     limb(P.armL, i, -SHOULDER_X, SHOULDER, w.crate ? -1.15 : -swing * 0.8);
-    limb(P.armR, i, SHOULDER_X, SHOULDER, w.crate ? -1.15 : swing * 0.8);
+    limb(P.armR, i, SHOULDER_X, SHOULDER, w.crate ? -1.15 : w.cane ? -0.25 : swing * 0.8);
     P.crate.setMatrixAt(i, w.crate ? _m : ZERO);
+    P.hat.setMatrixAt(i, w.hat ? _m : ZERO);
+    P.pack.setMatrixAt(i, w.pack ? _m : ZERO);
+    P.tie.setMatrixAt(i, w.tie ? _m : ZERO);
+    P.coat.setMatrixAt(i, w.coat ? _m : ZERO);
+    P.cane.setMatrixAt(i, w.cane ? _m : ZERO);
   });
   for (const o of Object.values(P)) o.instanceMatrix.needsUpdate = true;
 }
