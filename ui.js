@@ -15,6 +15,7 @@ export const ICONS = {
   all: '<path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z"/>',
   people: '<circle cx="9" cy="8" r="3"/><path d="M3.5 19.5c0-3.3 2.4-5.6 5.5-5.6s5.5 2.3 5.5 5.6"/><rect x="15" y="11" width="6" height="5" rx="1"/>',
   arrows: '<path d="M4 18C6 10 13 6.5 19.5 8.5"/><path d="M15 5.5l4.5 3-3 4.2"/>',
+  night: '<path d="M19.5 14.5A7.5 7.5 0 1 1 9.5 4.5a6 6 0 0 0 10 10z"/>',
 };
 export const icon = (id) =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[id]}</svg>`;
@@ -75,8 +76,9 @@ export const roleOf = (id, out, inn, r) => {
 // ---- state -------------------------------------------------------------------
 // res: null shows no lanes, "all" shows every lane, a resource id shows one network.
 // hoverFlow / hoverNode: the 流動 or 主要來源 row under the pointer, whose lanes light up.
-// people / arrows (3D only): draw each lane's walking carriers and its arc, independently.
-export const state = { res: null, focus: null, hoverFlow: null, hoverNode: null, people: false, arrows: true };
+// people / arrows / night (3D only): draw each lane's carriers and its arc, and light
+// the scene for night; each toggles on its own.
+export const state = { res: null, focus: null, hoverFlow: null, hoverNode: null, people: false, arrows: true, night: false };
 let hooks = {};
 
 export function set(patch) {
@@ -220,7 +222,7 @@ export function initUI(h) {
     `<button data-res="all" title="全部資源（0）">${icon("all")}全部<kbd>0</kbd></button>` +
     resources.map((r) => `<button data-res="${r.id}" style="--c:var(--${r.id})" title="${r.zh}（${r.key}）">${icon(r.id)}${r.short}<kbd>${r.key}</kbd></button>`).join("");
   if (hooks.toggles) {
-    const togs = [["people", "人物", "顯示攜帶資源貨物的人物"], ["arrows", "箭頭", "顯示流動箭頭"]];
+    const togs = [["people", "人物", "顯示攜帶資源貨物的人物"], ["arrows", "箭頭", "顯示流動箭頭"], ["night", "夜晚", "切換白天與夜晚"]];
     bar.insertAdjacentHTML("beforeend", `<div class="togs" role="group" aria-label="顯示">${togs
       .map(([id, label, title]) => `<button class="tog" data-tog="${id}" title="${title}">${icon(id)}${label}</button>`)
       .join("")}</div>`);
