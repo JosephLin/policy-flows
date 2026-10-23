@@ -13,6 +13,8 @@ export const ICONS = {
   access: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10.5h18M7 15h4"/>',
   supply: '<path d="M5 19C5 11 11 6 19 5c0 8-5 14-14 14zM5 19l7-7"/>',
   all: '<path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z"/>',
+  people: '<circle cx="9" cy="8" r="3"/><path d="M3.5 19.5c0-3.3 2.4-5.6 5.5-5.6s5.5 2.3 5.5 5.6"/><rect x="15" y="11" width="6" height="5" rx="1"/>',
+  arrows: '<path d="M4 18C6 10 13 6.5 19.5 8.5"/><path d="M15 5.5l4.5 3-3 4.2"/>',
 };
 export const icon = (id) =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[id]}</svg>`;
@@ -73,8 +75,8 @@ export const roleOf = (id, out, inn, r) => {
 // ---- state -------------------------------------------------------------------
 // res: null shows no lanes, "all" shows every lane, a resource id shows one network.
 // hoverFlow / hoverNode: the 流動 or 主要來源 row under the pointer, whose lanes light up.
-// show (3D only): draw lanes as walking "people", "arrows" on the arcs, or "both".
-export const state = { res: null, focus: null, hoverFlow: null, hoverNode: null, show: "both" };
+// people / arrows (3D only): draw each lane's walking carriers and its arc, independently.
+export const state = { res: null, focus: null, hoverFlow: null, hoverNode: null, people: false, arrows: true };
 let hooks = {};
 
 export function set(patch) {
@@ -88,9 +90,9 @@ function render() {
   const { out, inn } = r ? rolesFor(r.id) : { out: new Map(), inn: new Map() };
   hooks.onRender?.(r, out, inn);
   for (const b of $("#bar").querySelectorAll("button")) {
-    const on = b.dataset.show ? b.dataset.show === state.show : (b.dataset.res || null) === state.res;
+    const on = b.dataset.tog ? state[b.dataset.tog] : (b.dataset.res || null) === state.res;
     b.classList.toggle("on", on);
-    if (b.dataset.show) b.setAttribute("aria-pressed", on);
+    if (b.dataset.tog) b.setAttribute("aria-pressed", on);
   }
   renderPanel(r, out, inn);
 }
@@ -217,15 +219,15 @@ export function initUI(h) {
   bar.innerHTML =
     `<button data-res="all" title="全部資源（0）">${icon("all")}全部<kbd>0</kbd></button>` +
     resources.map((r) => `<button data-res="${r.id}" style="--c:var(--${r.id})" title="${r.zh}（${r.key}）">${icon(r.id)}${r.short}<kbd>${r.key}</kbd></button>`).join("");
-  if (hooks.showModes) {
-    const modes = [["people", "人物"], ["arrows", "箭頭"], ["both", "兩者"]];
-    bar.insertAdjacentHTML("beforeend", `<div class="seg" role="group" aria-label="顯示方式"><span>顯示</span><div>${modes
-      .map(([id, label]) => `<button data-show="${id}" title="流動以${label}顯示">${label}</button>`)
-      .join("")}</div></div>`);
+  if (hooks.toggles) {
+    const togs = [["people", "人物", "顯示攜帶資源貨物的人物"], ["arrows", "箭頭", "顯示流動箭頭"]];
+    bar.insertAdjacentHTML("beforeend", `<div class="togs" role="group" aria-label="顯示">${togs
+      .map(([id, label, title]) => `<button class="tog" data-tog="${id}" title="${title}">${icon(id)}${label}</button>`)
+      .join("")}</div>`);
   }
   bar.addEventListener("click", (e) => {
     const b = e.target.closest("button");
-    if (b?.dataset.show) return set({ show: b.dataset.show });
+    if (b?.dataset.tog) return set({ [b.dataset.tog]: !state[b.dataset.tog] });
     // Clicking the selected resource again turns it off, like pressing its key twice.
     if (b) set({ res: b.dataset.res !== state.res ? b.dataset.res : null, hoverFlow: null, hoverNode: null });
   });
