@@ -478,6 +478,9 @@ for (const n of nodes.values()) {
   if (g.userData.lamps) {
     const pts = new THREE.Points(new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute(g.userData.lamps, 3)), glowMat);
     pts.visible = state.night;
+    // Decoration only: Three.js raycasts points within a whole unit, visible or not,
+    // which would swallow every hover and click on the island.
+    pts.raycast = () => {};
     g.add(pts);
     glows.push(pts);
   }
