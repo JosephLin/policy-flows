@@ -67,7 +67,6 @@ const G = {
   bush: new THREE.IcosahedronGeometry(1, 0),
   trunk: new THREE.CylinderGeometry(0.035, 0.045, 1, 6),
   cyl: new THREE.CylinderGeometry(1, 1, 1, 16),
-  dot: new THREE.SphereGeometry(0.075, 12, 8),
   arrow: new THREE.ConeGeometry(0.1, 0.26, 12),
 };
 
@@ -228,6 +227,37 @@ const pickables = [];
 const world = new THREE.Group();
 scene.add(world);
 
+// Hex neighbors, each tagged with the edge (0–5, clockwise from 30°) it shares.
+const edgeIdx = (dx, dz) => (((Math.round(((Math.atan2(dx, dz) * 180) / Math.PI - 30) / 60) % 6) + 6) % 6);
+const nbrs = new Map([...nodes.keys()].map((id) => [id, []]));
+for (const A of nodes.values())
+  for (const B of nodes.values()) {
+    const dx = B.x - A.x, dz = B.y - A.y;
+    if (A !== B && Math.abs(Math.hypot(dx, dz) - Math.sqrt(3)) < 0.01) nbrs.get(A.id).push({ id: B.id, k: edgeIdx(dx, dz) });
+  }
+const bridged = (id, k) => nbrs.get(id).some((e) => e.k === k);
+
+// Each island has a ring road (12 points: corners at even indices, edge midpoints at
+// odd) and spokes out to the bridges; people walk only on these.
+const RING = (n) => (n.port ? 0.3 : 0.62);
+const EDGE = (n) => (n.port ? 0.54 : 0.9);
+const ringLocal = (n, idx) => {
+  const a = (idx * Math.PI) / 6, r = idx % 2 ? RING(n) * Math.cos(Math.PI / 6) : RING(n);
+  return [Math.sin(a) * r, Math.cos(a) * r];
+};
+const edgeLocal = (n, k) => {
+  const a = (Math.PI / 3) * k + Math.PI / 6;
+  return [Math.sin(a) * EDGE(n), Math.cos(a) * EDGE(n)];
+};
+function slab(parent, m, p1, p2, w, h = 0.008) {
+  const o = new THREE.Mesh(G.box, m);
+  o.position.copy(p1).add(p2).multiplyScalar(0.5);
+  o.lookAt(p2);
+  o.scale.set(w, h, p1.distanceTo(p2) + w * 0.5);
+  parent.add(o);
+  return o;
+}
+
 for (const n of nodes.values()) {
   tints.set(n.id, []);
   const rand = rng(n.id);
@@ -245,22 +275,27 @@ for (const n of nodes.values()) {
   g.add(shoal);
 
   const accent = ROOFS[(n.n || 3) % ROOFS.length];
-  const clear = LANDMARKS[n.id](g, n.id, top, accent, rand);
+  LANDMARKS[n.id](g, n.id, top, accent, rand);
+
+  const road = mat(n.id, "#d6cdbb");
+  const at = ([x, z]) => new THREE.Vector3(x, top + 0.004, z);
+  for (let k = 0; k < 6; k++) slab(g, road, at(ringLocal(n, 2 * k)), at(ringLocal(n, 2 * k + 2)), 0.07);
+  for (const { k } of nbrs.get(n.id)) slab(g, road, at(ringLocal(n, 2 * k + 1)), at(edgeLocal(n, k)), 0.07);
 
   if (!n.port) {
-    // Plots: an inner ring facing the hex edges, an outer ring facing the corners.
+    // Plots sit outside the ring road: houses in the corners, trees on edges without a bridge.
     const plots = [];
-    if (clear < 0.3) for (let k = 0; k < 6; k++) plots.push([0.42, (Math.PI / 3) * k + Math.PI / 6]);
-    for (let k = 0; k < 6; k++) plots.push([0.66, (Math.PI / 3) * k]);
+    for (let k = 0; k < 6; k++) plots.push([0.8, (Math.PI / 3) * k, true]);
+    for (let k = 0; k < 6; k++) if (!bridged(n.id, k)) plots.push([0.72, (Math.PI / 3) * k + Math.PI / 6, false]);
     plots.sort(() => rand() - 0.5);
     const green = n.id === "forest" || n.id === "trails";
-    let houses = green ? 2 : Math.min(n.b - 1, 7);
-    for (const [r, a] of plots) {
-      const x = Math.sin(a) * r + (rand() - 0.5) * 0.06, z = Math.cos(a) * r + (rand() - 0.5) * 0.06;
-      if (houses-- > 0) {
-        const w = 0.16 + rand() * 0.08, h = 0.12 + rand() * 0.16;
+    let houses = green ? 2 : Math.min(n.b - 1, 6);
+    for (const [r, a, corner] of plots) {
+      const x = Math.sin(a) * r + (rand() - 0.5) * 0.04, z = Math.cos(a) * r + (rand() - 0.5) * 0.04;
+      if (corner && houses-- > 0) {
+        const w = 0.13 + rand() * 0.06, h = 0.12 + rand() * 0.16;
         house(g, n.id, top, x, z, w, w * (0.8 + rand() * 0.4), h, WALLS[Math.floor(rand() * WALLS.length)], rand() < 0.5 ? accent : ROOFS[Math.floor(rand() * ROOFS.length)], a);
-      } else if (rand() < 0.85) tree(g, n.id, top, x, z, 0.8 + rand() * 0.6, rand);
+      } else if (rand() < 0.85) tree(g, n.id, top, x, z, 0.7 + rand() * 0.5, rand);
     }
   }
 
@@ -285,20 +320,34 @@ for (const n of nodes.values()) {
   islands.set(n.id, { g, top, ground, label: div, roleEl: div.querySelector(".rl"), lift: 0 });
 }
 
+// Wooden bridges between neighboring islands, edge to edge.
+const plank = new THREE.MeshStandardMaterial({ color: "#a8865f", roughness: 0.9, flatShading: true });
+function worldPt(id, [x, z]) {
+  const isl = islands.get(id), v = new THREE.Vector3(isl.g.position.x + x, isl.top + 0.012, isl.g.position.z + z);
+  v.id = id;
+  return v;
+}
+for (const [id, list] of nbrs)
+  for (const e of list) {
+    if (id > e.id) continue;
+    const back = nbrs.get(e.id).find((x) => x.id === id).k;
+    const b = slab(world, plank, worldPt(id, edgeLocal(nodes.get(id), e.k)), worldPt(e.id, edgeLocal(nodes.get(e.id), back)), 0.13, 0.025);
+    b.castShadow = b.receiveShadow = true;
+  }
+
 // ---- lanes -------------------------------------------------------------------
 const laneGroup = new THREE.Group();
 world.add(laneGroup);
-let movers = [];
 const UP = new THREE.Vector3(0, 1, 0);
 
 function drawLanes() {
   for (const o of laneGroup.children) {
-    if (o.geometry !== G.dot && o.geometry !== G.arrow) o.geometry.dispose();
+    if (o.geometry !== G.arrow) o.geometry.dispose();
     o.material.dispose();
   }
   laneGroup.clear();
-  movers = [];
   const { list, dim } = activeLanes();
+  buildPeople(list, dim);
   if (!list.length) return;
   const colors = new Map(resources.map((r) => [r.id, new THREE.Color(css(`--${r.id}`))]));
   const pos = (id) => {
@@ -318,26 +367,151 @@ function drawLanes() {
       .addScaledVector(left, 0.16 + l.nth * 0.14 + d * 0.05)
       .addScaledVector(UP, 0.7 + d * 0.28);
     const curve = new THREE.QuadraticBezierCurve3(start, ctrl, end);
-    const faded = dim && !l.hi, color = colors.get(l.res);
-
+    // The walkers carry the motion now, so arcs stay thin and quiet, quieter still
+    // in the overview where all six networks overlap.
+    const faded = dim && !l.hi, color = colors.get(l.res), all = !state.res;
     const tube = new THREE.Mesh(
-      new THREE.TubeGeometry(curve, 48, 0.04, 8),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.07 : 0.55, depthWrite: false }),
+      new THREE.TubeGeometry(curve, 48, 0.022, 6),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.05 : all && !l.hi ? 0.22 : 0.5, depthWrite: false }),
     );
     laneGroup.add(tube);
-    const arrow = new THREE.Mesh(G.arrow, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.12 : 1 }));
+    const arrow = new THREE.Mesh(G.arrow, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.1 : all && !l.hi ? 0.45 : 1 }));
     arrow.position.copy(end);
     arrow.quaternion.setFromUnitVectors(UP, curve.getTangentAt(1));
     laneGroup.add(arrow);
-
-    const len = curve.getLength(), count = Math.max(2, Math.round(len * 2.4));
-    const dotMat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.12 : 1 });
-    for (let k = 0; k < count; k++) {
-      const m = new THREE.Mesh(G.dot, dotMat);
-      laneGroup.add(m);
-      movers.push({ m, curve, k, count, len });
-    }
   }
+}
+
+// ---- people ------------------------------------------------------------------
+// Carriers walk each active lane's shortest bridge route, crate in the resource's
+// color; residents with no cargo stroll their island's ring road.
+function bfs(a, b) {
+  const prev = new Map([[a, null]]), queue = [a];
+  while (queue.length) {
+    const id = queue.shift();
+    if (id === b) break;
+    for (const e of nbrs.get(id)) if (!prev.has(e.id)) prev.set(e.id, id), queue.push(e.id);
+  }
+  const path = [];
+  for (let id = b; id != null; id = prev.get(id)) path.unshift(id);
+  return path[0] === a ? path : null;
+}
+const ringPt = (id, idx) => worldPt(id, ringLocal(nodes.get(id), idx));
+const edgePt = (id, k) => worldPt(id, edgeLocal(nodes.get(id), k));
+const edgeTo = (a, b) => nbrs.get(a).find((e) => e.id === b).k;
+function walkRing(id, from, to, pts) {
+  const step = (to - from + 12) % 12 <= 6 ? 1 : -1;
+  for (let i = from; i !== to; ) pts.push(ringPt(id, (i = (i + step + 12) % 12)));
+}
+function measure(pts, loop) {
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + pts[i].distanceTo(pts[i - 1]));
+  return { pts, cum, len: cum[cum.length - 1], loop };
+}
+function routeFor(a, b, rand) {
+  const path = bfs(a, b);
+  if (!path) return null;
+  let cur = Math.floor(rand() * 12);
+  const pts = [ringPt(a, cur)];
+  path.forEach((id, i) => {
+    if (i > 0) {
+      const k = edgeTo(id, path[i - 1]);
+      pts.push(edgePt(id, k), ringPt(id, (cur = 2 * k + 1)));
+    }
+    if (i < path.length - 1) {
+      const k = edgeTo(id, path[i + 1]);
+      walkRing(id, cur, 2 * k + 1, pts);
+      pts.push(edgePt(id, k));
+    } else walkRing(id, cur, (cur + 2 + Math.floor(rand() * 6)) % 12, pts);
+  });
+  return measure(pts, false);
+}
+
+const MAX_PEOPLE = 800;
+const SKIN = ["#f1c9a5", "#e0ac84", "#c68a62", "#8d5a3b", "#f6d7bd"];
+const CLOTHES = ["#3f6fb2", "#d9612f", "#4f8c55", "#8a5bb8", "#c9930f", "#2e8a8a", "#b5473f", "#5b5f66", "#ece6da"];
+function crowd(geo, m) {
+  const o = new THREE.InstancedMesh(geo, m, MAX_PEOPLE);
+  o.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  o.castShadow = true;
+  o.frustumCulled = false;
+  o.count = 0;
+  world.add(o);
+  return o;
+}
+const bodies = crowd(new THREE.CapsuleGeometry(0.026, 0.05, 3, 8).translate(0, 0.051, 0), new THREE.MeshStandardMaterial({ roughness: 0.8 }));
+const heads = crowd(new THREE.SphereGeometry(0.027, 10, 8).translate(0, 0.128, 0), new THREE.MeshStandardMaterial({ roughness: 0.7 }));
+const crates = crowd(new THREE.BoxGeometry(0.05, 0.04, 0.05).translate(0, 0.18, 0), new THREE.MeshBasicMaterial());
+
+const residents = [];
+for (const n of nodes.values()) {
+  const rand = rng(`${n.id}-people`), pts = [];
+  for (let i = 0; i <= 12; i++) pts.push(ringPt(n.id, i % 12));
+  const loop = measure(pts, true);
+  for (let k = 0; k < (n.port ? 1 : 3); k++)
+    residents.push({
+      route: loop, phase: rand(), speed: (rand() < 0.5 ? 1 : -1) * (0.12 + rand() * 0.08), off: 0.02,
+      clothes: new THREE.Color(CLOTHES[Math.floor(rand() * CLOTHES.length)]), skin: new THREE.Color(SKIN[Math.floor(rand() * SKIN.length)]),
+    });
+}
+
+let people = [];
+function buildPeople(list, dim) {
+  const rand = rng(`${state.res}-${state.focus}`), gray = new THREE.Color(css("--ground-off"));
+  const carriers = [];
+  for (const l of list) {
+    const route = routeFor(l.a, l.b, rand);
+    if (!route) continue;
+    const color = new THREE.Color(css(`--${l.res}`)), count = Math.max(2, Math.min(6, Math.round(route.len / 1.1)));
+    for (let k = 0; k < count; k++)
+      carriers.push({
+        route, phase: (k + rand() * 0.6) / count, speed: 0.26 + rand() * 0.1, off: 0.03 + rand() * 0.015,
+        clothes: new THREE.Color(CLOTHES[Math.floor(rand() * CLOTHES.length)]).lerp(color, 0.35),
+        skin: new THREE.Color(SKIN[Math.floor(rand() * SKIN.length)]), crate: color, hidden: dim && !l.hi,
+      });
+  }
+  people = residents.concat(carriers).slice(0, MAX_PEOPLE);
+  people.forEach((p, i) => {
+    // In an info view, residents fade to gray so the carriers read as the network.
+    bodies.setColorAt(i, state.res && !p.crate ? gray : p.clothes);
+    heads.setColorAt(i, p.skin);
+    crates.setColorAt(i, p.crate || p.clothes);
+  });
+  for (const o of [bodies, heads, crates]) {
+    o.count = people.length;
+    if (o.instanceColor) o.instanceColor.needsUpdate = true;
+  }
+}
+
+const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _z = new THREE.Vector3();
+function stepPeople(t) {
+  people.forEach((w, i) => {
+    const { pts, cum, len, loop } = w.route;
+    const s = ((((t * w.speed) % len) + w.phase * len) % len + len) % len;
+    let lo = 0, hi = cum.length - 1;
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      cum[mid] <= s ? (lo = mid) : (hi = mid);
+    }
+    const a = pts[lo], b = pts[hi], seg = cum[hi] - cum[lo] || 1;
+    _p.lerpVectors(a, b, (s - cum[lo]) / seg);
+    let dx = b.x - a.x, dz = b.z - a.z;
+    const d = Math.hypot(dx, dz) || 1;
+    if (w.speed < 0) (dx = -dx), (dz = -dz);
+    // Keep right, so two-way traffic on a road splits into two files.
+    _p.x += (-dz / d) * w.off;
+    _p.z += (dx / d) * w.off;
+    _p.y += islands.get(a.id).g.position.y + Math.abs(Math.sin(t * 10 + w.phase * 40)) * 0.012;
+    const fade = loop ? 1 : Math.min(1, s / 0.12, (len - s) / 0.12);
+    _q.setFromAxisAngle(UP, Math.atan2(dx, dz));
+    _s.setScalar(w.hidden ? 0 : 1.3 * Math.max(0, fade));
+    _m.compose(_p, _q, _s);
+    bodies.setMatrixAt(i, _m);
+    heads.setMatrixAt(i, _m);
+    if (!w.crate) _m.compose(_p, _q, _z);
+    crates.setMatrixAt(i, _m);
+  });
+  for (const o of [bodies, heads, crates]) o.instanceMatrix.needsUpdate = true;
 }
 
 // ---- info view ---------------------------------------------------------------
@@ -437,10 +611,7 @@ resize();
 const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
   const t = clock.getElapsedTime();
-  for (const v of movers) {
-    const u = reduced.matches ? (v.k + 0.5) / v.count : ((t * 0.6) / v.len + v.k / v.count) % 1;
-    v.m.position.copy(v.curve.getPointAt(u));
-  }
+  stepPeople(reduced.matches ? 0 : t);
   for (const list of tints.values()) for (const e of list) e.m.color.lerp(e.target, 0.12);
   for (const [id, isl] of islands) {
     const goal = isl.lift + (hovered === id ? 0.05 : 0);
