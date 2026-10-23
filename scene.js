@@ -73,6 +73,7 @@ const G = {
   trunk: new THREE.CylinderGeometry(0.035, 0.045, 1, 6),
   cyl: new THREE.CylinderGeometry(1, 1, 1, 16),
   arrow: new THREE.ConeGeometry(0.1, 0.26, 12),
+  dot: new THREE.SphereGeometry(0.06, 12, 8),
 };
 
 const WALLS = ["#f4eee2", "#ebe1cf", "#f7f2e8", "#e6dccb"];
@@ -344,13 +345,15 @@ for (const [id, list] of nbrs)
 const laneGroup = new THREE.Group();
 world.add(laneGroup);
 const UP = new THREE.Vector3(0, 1, 0);
+let movers = [];
 
 function drawLanes() {
   for (const o of laneGroup.children) {
-    if (o.geometry !== G.arrow) o.geometry.dispose();
+    if (o.geometry !== G.arrow && o.geometry !== G.dot) o.geometry.dispose();
     o.material.dispose();
   }
   laneGroup.clear();
+  movers = [];
   const { list, dim } = activeLanes();
   buildPeople(list, dim);
   if (!list.length) return;
@@ -372,18 +375,27 @@ function drawLanes() {
       .addScaledVector(left, 0.16 + l.nth * 0.14 + d * 0.05)
       .addScaledVector(UP, 0.7 + d * 0.28);
     const curve = new THREE.QuadraticBezierCurve3(start, ctrl, end);
-    // The walkers carry the motion now, so arcs stay thin. Every view, the overview
-    // included, keeps each arc in its resource's color.
+    // Every view, the overview included, keeps each arc in its resource's color. A
+    // highlight dims the other lanes but leaves them readable, never hidden.
     const faded = dim && !l.hi, color = colors.get(l.res);
     const tube = new THREE.Mesh(
-      new THREE.TubeGeometry(curve, 48, 0.022, 6),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.05 : 0.55, depthWrite: false }),
+      new THREE.TubeGeometry(curve, 48, 0.026, 6),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.25 : 0.55, depthWrite: false }),
     );
     laneGroup.add(tube);
-    const arrow = new THREE.Mesh(G.arrow, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.1 : 1 }));
+    const arrow = new THREE.Mesh(G.arrow, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.45 : 1 }));
     arrow.position.copy(end);
     arrow.quaternion.setFromUnitVectors(UP, curve.getTangentAt(1));
     laneGroup.add(arrow);
+
+    // Bulbs travel the arc toward the arrowhead, so direction reads at a glance.
+    const len = curve.getLength(), count = Math.max(2, Math.round(len * 2.4));
+    const bulb = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.45 : 1 });
+    for (let k = 0; k < count; k++) {
+      const m = new THREE.Mesh(G.dot, bulb);
+      laneGroup.add(m);
+      movers.push({ m, curve, k, count, len });
+    }
   }
 }
 
@@ -617,6 +629,10 @@ resize();
 const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
   const t = clock.getElapsedTime();
+  for (const v of movers) {
+    const u = reduced.matches ? (v.k + 0.5) / v.count : ((t * 0.6) / v.len + v.k / v.count) % 1;
+    v.m.position.copy(v.curve.getPointAt(u));
+  }
   stepPeople(reduced.matches ? 0 : t);
   for (const list of tints.values()) for (const e of list) e.m.color.lerp(e.target, 0.12);
   for (const [id, isl] of islands) {
