@@ -75,3 +75,10 @@ Close-up with the pointer on the 衛福 minibus. Before, the tip summarized the
 island. After, it names the policy item the model stands for (在宅醫療).
 
 ![Landmark labels](2026-10-23-landmark-labels/hover.jpg)
+### 10 · Water and night
+
+Day overview, night overview (夜晚 on) and night close-up.
+
+![Water](2026-10-23-water-and-night/day.jpg)
+![Night](2026-10-23-water-and-night/night.jpg)
+![Night, close up](2026-10-23-water-and-night/night-closeup.jpg)

@@ -12,16 +12,23 @@ const smooth = (a, b, x) => {
   return t * t * (3 - 2 * t);
 };
 
-// A tileable normal map built from a few sine waves, scrolled to make the sea shimmer.
+// A tileable normal map, scrolled to make the sea shimmer. Many small waves across
+// several scales read as choppy water; a few broad ones read as rubber. Amplitude
+// falls with frequency, like real ripples.
 function waterNormals(N = 256) {
-  const waves = [[3, 1, 0.9, 0.3], [1, 4, 0.7, 1.7], [5, -2, 0.5, 2.9], [-4, 3, 0.4, 4.1], [7, 5, 0.3, 0.8], [2, -7, 0.25, 5.2]];
+  const rand = rng(7);
+  const waves = [];
+  for (let k = 0; k < 22; k++) {
+    const f = 3 + k * 1.3, a = rand() * Math.PI * 2;
+    waves.push([Math.round(Math.cos(a) * f), Math.round(Math.sin(a) * f), 1.4 / f, rand() * Math.PI * 2]);
+  }
   const h = (x, y) => waves.reduce((s, [fx, fy, a, p]) => s + a * Math.sin((2 * Math.PI * (fx * x + fy * y)) / N + p), 0);
   const c = document.createElement("canvas");
   c.width = c.height = N;
   const ctx = c.getContext("2d"), img = ctx.createImageData(N, N);
   for (let y = 0; y < N; y++)
     for (let x = 0; x < N; x++) {
-      const dx = (h(x + 1, y) - h(x - 1, y)) * 4, dy = (h(x, y + 1) - h(x, y - 1)) * 4;
+      const dx = (h(x + 1, y) - h(x - 1, y)) * 14, dy = (h(x, y + 1) - h(x, y - 1)) * 14;
       const l = Math.hypot(dx, dy, 1), i = (y * N + x) * 4;
       img.data[i] = (-dx / l * 0.5 + 0.5) * 255;
       img.data[i + 1] = (-dy / l * 0.5 + 0.5) * 255;
@@ -31,7 +38,39 @@ function waterNormals(N = 256) {
   ctx.putImageData(img, 0, 0);
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(28, 28);
+  tex.repeat.set(22, 22);
+  return tex;
+}
+
+// Lighter, greener water hugging each island's shore, fading out to the open sea.
+function shallowTexture() {
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const ctx = c.getContext("2d"), g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, "rgba(255,255,255,1)");
+  g.addColorStop(0.55, "rgba(255,255,255,0.75)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+}
+
+// A small equirectangular sky for the sea to reflect: zenith, horizon, and a dark
+// band below so grazing views don't reflect empty white.
+function reflectionSky(top, horizon, below) {
+  const c = document.createElement("canvas");
+  c.width = 64;
+  c.height = 32;
+  const ctx = c.getContext("2d"), g = ctx.createLinearGradient(0, 0, 0, 32);
+  g.addColorStop(0, top);
+  g.addColorStop(0.48, horizon);
+  g.addColorStop(0.52, below);
+  g.addColorStop(1, below);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 64, 32);
+  const tex = new THREE.CanvasTexture(c);
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
 
@@ -128,7 +167,7 @@ function turbine() {
   return { g, rotor };
 }
 
-export function createEnv(scene, { css, isDark }) {
+export function createEnv(scene, { css, isDark, renderer }) {
   // Sky: a vertical gradient behind everything, with haze toward its horizon color.
   const skyCanvas = document.createElement("canvas");
   skyCanvas.width = 2;
@@ -139,16 +178,25 @@ export function createEnv(scene, { css, isDark }) {
   scene.fog = new THREE.Fog(0xffffff, 24, 58);
 
   const normals = waterNormals();
+  // Glossy water that reflects the sky; the reflection is the sea's main color cue,
+  // so the base color stays a little deeper than the water should look.
   const sea = new THREE.Mesh(
     new THREE.PlaneGeometry(200, 200).rotateX(-Math.PI / 2),
-    new THREE.MeshStandardMaterial({ roughness: 0.34, metalness: 0.05, normalMap: normals, normalScale: new THREE.Vector2(0.55, 0.55) }),
+    new THREE.MeshStandardMaterial({ roughness: 0.14, metalness: 0, normalMap: normals, normalScale: new THREE.Vector2(0.22, 0.22), envMapIntensity: 0.65 }),
   );
   sea.receiveShadow = true;
   scene.add(sea, basin());
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  let envRT = null;
+
+  const shallowMat = new THREE.MeshBasicMaterial({ map: shallowTexture(), transparent: true, depthWrite: false, opacity: 0.45 });
 
   const foamMat = new THREE.MeshBasicMaterial({ map: foamTexture(), transparent: true, depthWrite: false });
   const foams = [];
   const foam = (x, z, r) => {
+    const s = new THREE.Mesh(new THREE.CircleGeometry(r * 1.9, 48).rotateX(-Math.PI / 2), shallowMat);
+    s.position.set(x, 0.006, z);
+    scene.add(s);
     const o = new THREE.Mesh(new THREE.CircleGeometry(r * 1.32, 48).rotateX(-Math.PI / 2), foamMat);
     o.position.set(x, 0.012, z);
     o.userData.phase = foams.length * 1.7;
@@ -201,12 +249,20 @@ export function createEnv(scene, { css, isDark }) {
     skyTex.needsUpdate = true;
     scene.fog.color.set(css("--sky"));
     sea.material.color.set(css("--sea"));
-    foamMat.opacity = isDark() ? 0.3 : 0.85;
+    shallowMat.color.set(css("--shallow"));
+    shallowMat.opacity = isDark() ? 0.3 : 0.45;
+    envRT?.dispose();
+    const refl = reflectionSky(css("--sky-top"), css("--sky"), css("--sea"));
+    envRT = pmrem.fromEquirectangular(refl);
+    refl.dispose();
+    sea.material.envMap = envRT.texture;
+    sea.material.needsUpdate = true;
+    foamMat.opacity = isDark() ? 0.45 : 0.85;
     cloudMat.color.set(isDark() ? "#5d6780" : "#ffffff");
   }
 
   function update(t, dt) {
-    normals.offset.set(t * 0.006, t * 0.004);
+    normals.offset.set(t * 0.012, t * 0.007);
     for (const f of foams) f.scale.setScalar(1 + Math.sin(t * 0.9 + f.userData.phase) * 0.02);
     for (const c of clouds) {
       c.o.position.x += c.speed * dt;

@@ -15,8 +15,9 @@ const dark = matchMedia("(prefers-color-scheme: dark)");
 // The scene keeps its own day and night palettes, so the 夜晚 toggle works in either
 // page theme. The scene opens in daytime. Resource colors still come from CSS.
 const PALETTE = {
-  day: { "--sky": "#eaf1ec", "--sky-top": "#9cc6dc", "--sea": "#74aebd", "--ground": "#bdd29a", "--ground-off": "#dad8d3", "--cliff": "#c8a77c", "--rock": "#9b9285" },
-  night: { "--sky": "#2c3549", "--sky-top": "#0b1120", "--sea": "#2a4c5f", "--ground": "#556b48", "--ground-off": "#3b3c3f", "--cliff": "#5e4b38", "--rock": "#4b4842" },
+  day: { "--sky": "#eaf1ec", "--sky-top": "#9cc6dc", "--sea": "#5f9fb3", "--shallow": "#9fe0d6", "--ground": "#bdd29a", "--ground-off": "#dad8d3", "--cliff": "#c8a77c", "--rock": "#9b9285" },
+  // Night is a blue moonlit evening, bright enough to read every island.
+  night: { "--sky": "#4a5a80", "--sky-top": "#1a2747", "--sea": "#30566e", "--shallow": "#5f9cb0", "--ground": "#6f8d5e", "--ground-off": "#4a4c52", "--cliff": "#76604a", "--rock": "#5f5c56" },
 };
 state.night = false;
 const tone = (key) => PALETTE[state.night ? "night" : "day"][key] ?? css(key);
@@ -59,7 +60,7 @@ sun.shadow.normalBias = 0.02;
 scene.add(hemi, sun);
 
 sun.shadow.intensity = 0.8;
-const env = createEnv(scene, { css: tone, isDark: () => state.night });
+const env = createEnv(scene, { css: tone, isDark: () => state.night, renderer });
 
 // ---- materials that tint for the info view -----------------------------------
 // Every island material is registered with its base color; render() sets a target and
@@ -84,6 +85,18 @@ const winMat = (id) => {
   return m;
 };
 const lampMat = new THREE.MeshStandardMaterial({ color: "#fff4d8", emissive: "#ffc66e", emissiveIntensity: 0 });
+const glows = [];
+const glowMat = (() => {
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const ctx = c.getContext("2d"), g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, "rgba(255,214,150,0.9)");
+  g.addColorStop(0.25, "rgba(255,196,120,0.45)");
+  g.addColorStop(1, "rgba(255,180,100,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 64, 64);
+  return new THREE.PointsMaterial({ map: new THREE.CanvasTexture(c), size: 0.42, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+})();
 
 const G = {
   // Every box has softly rounded edges; scaled, the corners stay proportionate.
@@ -198,6 +211,7 @@ function tree(g, id, top, x, z, s, rand) {
   }
 }
 function lamp(g, id, top, x, z) {
+  (g.userData.lamps ||= []).push(x, top + 0.19, z);
   mesh(g, G.cyl, mat(id, "#7d9188"), x, top + 0.085, z, 0.009, 0.17, 0.009);
   mesh(g, G.cyl, mat(id, "#7d9188"), x, top + 0.215, z, 0.026, 0.012, 0.026);
   mesh(g, G.lampHead, lampMat, x, top + 0.19, z, 1, 1, 1);
@@ -459,6 +473,14 @@ for (const n of nodes.values()) {
   }
 
   bake(g, n.id);
+  // A soft halo around each street lamp, shown only at night. Points aren't meshes,
+  // so they survive the bake as their own child of the island.
+  if (g.userData.lamps) {
+    const pts = new THREE.Points(new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute(g.userData.lamps, 3)), glowMat);
+    pts.visible = state.night;
+    g.add(pts);
+    glows.push(pts);
+  }
   pickables.push(g);
 
   const div = document.createElement("div");
@@ -789,16 +811,17 @@ let litNight = null;
 function light() {
   const dusk = (litNight = state.night);
   env.applyTheme();
-  hemi.color.set(dusk ? "#8ea3cf" : "#fff8ee");
-  hemi.groundColor.set(dusk ? "#1d2433" : "#b7a98c");
-  hemi.intensity = dusk ? 0.85 : 1.45;
-  sun.color.set(dusk ? "#c9b6ff" : "#fff0d8");
-  sun.intensity = dusk ? 1.0 : 2.5;
+  hemi.color.set(dusk ? "#a9bce6" : "#fff8ee");
+  hemi.groundColor.set(dusk ? "#3a3f5a" : "#b7a98c");
+  hemi.intensity = dusk ? 1.35 : 1.45;
+  sun.color.set(dusk ? "#c8d4ff" : "#fff0d8");
+  sun.intensity = dusk ? 1.5 : 2.5;
+  for (const g of glows) g.visible = dusk;
   for (const m of glowing) {
     m.emissive.set("#ffcf86");
-    m.emissiveIntensity = dusk ? 0.85 : 0;
+    m.emissiveIntensity = dusk ? 1.6 : 0;
   }
-  lampMat.emissiveIntensity = dusk ? 2.2 : 0.15;
+  lampMat.emissiveIntensity = dusk ? 4 : 0.15;
   for (const list of tints.values())
     for (const e of list)
       if (e.key) {
