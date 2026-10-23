@@ -356,7 +356,7 @@ function drawLanes() {
   movers = [];
   const { list, dim } = activeLanes();
   buildPeople(list, dim);
-  if (!list.length) return;
+  if (!list.length || state.show === "people") return;
   const colors = new Map(resources.map((r) => [r.id, new THREE.Color(css(`--${r.id}`))]));
   const pos = (id) => {
     const i = islands.get(id);
@@ -477,7 +477,7 @@ let people = [];
 function buildPeople(list, dim) {
   const rand = rng(`${state.res}-${state.focus}`), gray = new THREE.Color(css("--ground-off"));
   const carriers = [];
-  for (const l of list) {
+  for (const l of state.show === "arrows" ? [] : list) {
     const route = routeFor(l.a, l.b, rand);
     if (!route) continue;
     const color = new THREE.Color(css(`--${l.res}`)), count = Math.max(2, Math.min(6, Math.round(route.len / 1.1)));
@@ -645,5 +645,5 @@ renderer.setAnimationLoop(() => {
   labelRenderer.render(scene, camera);
 });
 
-initUI({ onRender, onHoverFlow: drawLanes, footer: '<a href="flat.html">開啟平面地圖</a>。' });
+initUI({ onRender, onHoverFlow: drawLanes, showModes: true, footer: '<a href="flat.html">開啟平面地圖</a>。' });
 applyTheme();

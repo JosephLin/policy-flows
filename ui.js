@@ -73,7 +73,8 @@ export const roleOf = (id, out, inn, r) => {
 // ---- state -------------------------------------------------------------------
 // res: null shows no lanes, "all" shows every lane, a resource id shows one network.
 // hoverFlow / hoverNode: the 流動 or 主要來源 row under the pointer, whose lanes light up.
-export const state = { res: null, focus: null, hoverFlow: null, hoverNode: null };
+// show (3D only): draw lanes as walking "people", "arrows" on the arcs, or "both".
+export const state = { res: null, focus: null, hoverFlow: null, hoverNode: null, show: "both" };
 let hooks = {};
 
 export function set(patch) {
@@ -86,7 +87,11 @@ function render() {
   document.body.style.setProperty("--rc", r ? `var(--${r.id})` : "var(--ink)");
   const { out, inn } = r ? rolesFor(r.id) : { out: new Map(), inn: new Map() };
   hooks.onRender?.(r, out, inn);
-  for (const b of $("#bar").querySelectorAll("button")) b.classList.toggle("on", (b.dataset.res || null) === state.res);
+  for (const b of $("#bar").querySelectorAll("button")) {
+    const on = b.dataset.show ? b.dataset.show === state.show : (b.dataset.res || null) === state.res;
+    b.classList.toggle("on", on);
+    if (b.dataset.show) b.setAttribute("aria-pressed", on);
+  }
   renderPanel(r, out, inn);
 }
 
@@ -212,8 +217,15 @@ export function initUI(h) {
   bar.innerHTML =
     `<button data-res="all" title="全部資源（0）">${icon("all")}全部<kbd>0</kbd></button>` +
     resources.map((r) => `<button data-res="${r.id}" style="--c:var(--${r.id})" title="${r.zh}（${r.key}）">${icon(r.id)}${r.short}<kbd>${r.key}</kbd></button>`).join("");
+  if (hooks.showModes) {
+    const modes = [["people", "人物"], ["arrows", "箭頭"], ["both", "兩者"]];
+    bar.insertAdjacentHTML("beforeend", `<div class="seg" role="group" aria-label="顯示方式"><span>顯示</span><div>${modes
+      .map(([id, label]) => `<button data-show="${id}" title="流動以${label}顯示">${label}</button>`)
+      .join("")}</div></div>`);
+  }
   bar.addEventListener("click", (e) => {
     const b = e.target.closest("button");
+    if (b?.dataset.show) return set({ show: b.dataset.show });
     // Clicking the selected resource again turns it off, like pressing its key twice.
     if (b) set({ res: b.dataset.res !== state.res ? b.dataset.res : null, hoverFlow: null, hoverNode: null });
   });
