@@ -10,7 +10,7 @@ import shutil
 
 ROOT = pathlib.Path(__file__).resolve().parent
 OUT = ROOT / "data" / "work" / "artifact"
-FILES = ["style.css", "ui.js", "data.js", "scene.js", "env.js", "flat.js", "flat.html"]
+FILES = ["style.css", "ui.js", "data.js", "scene.js", "env.js", "landmarks.js", "flat.js", "flat.html"]
 
 OUT.mkdir(parents=True, exist_ok=True)
 page = (ROOT / "index.html").read_text()
