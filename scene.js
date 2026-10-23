@@ -10,19 +10,14 @@ const host = document.querySelector("#world");
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const reduced = matchMedia("(prefers-reduced-motion: reduce)");
 const dark = matchMedia("(prefers-color-scheme: dark)");
-// An explicit data-theme on <html> (set by the artifact viewer) wins over the OS setting.
-const isDark = () => {
-  const t = document.documentElement.dataset.theme;
-  return t ? t === "dark" : dark.matches;
-};
 
 // The scene keeps its own day and night palettes, so the 夜晚 toggle works in either
-// page theme; it starts out matching the theme. Resource colors still come from CSS.
+// page theme. The scene opens in daytime. Resource colors still come from CSS.
 const PALETTE = {
   day: { "--sky": "#eaf1ec", "--sky-top": "#9cc6dc", "--sea": "#74aebd", "--ground": "#bdd29a", "--ground-off": "#dad8d3", "--cliff": "#c8a77c", "--rock": "#9b9285" },
   night: { "--sky": "#2c3549", "--sky-top": "#0b1120", "--sea": "#2a4c5f", "--ground": "#556b48", "--ground-off": "#3b3c3f", "--cliff": "#5e4b38", "--rock": "#4b4842" },
 };
-state.night = isDark();
+state.night = false;
 const tone = (key) => PALETTE[state.night ? "night" : "day"][key] ?? css(key);
 
 // ---- renderer, camera, light -------------------------------------------------
@@ -668,7 +663,7 @@ function buildPeople(list, dim) {
   for (const l of state.people ? list : []) {
     const route = routeFor(l.a, l.b, rand);
     if (!route) continue;
-    const color = new THREE.Color(css(`--${l.res}`)), count = Math.max(2, Math.min(6, Math.round(route.len / 1.1)));
+    const color = new THREE.Color(css(`--${l.res}`)), count = Math.max(1, Math.min(3, Math.round(route.len / 2.2)));
     for (let k = 0; k < count; k++) {
       const c = { ...dress(l.res, rand, color), route, phase: (k + rand() * 0.6) / count, speed: 0.26 + rand() * 0.1, off: 0.03 + rand() * 0.015, crate: color, hidden: dim && !l.hi };
       carriers.push(c);
