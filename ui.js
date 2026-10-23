@@ -131,11 +131,11 @@ export const hideTip = () => (tip.hidden = true);
 // Under every panel view: this is a demo, not the campaign's site, and where the data came from.
 const link = (href, text) => `<a href="${href}" target="_blank" rel="noopener">${text}</a>`;
 const ABOUT = `<section class="about">
-  <h3>關於這個原型</h3>
+  <h3>關於這個 prototype</h3>
   <p>這是給政策團隊看的概念驗證，不是官方網站，也不代表任何候選人或政黨的立場。</p>
   <dl>
     <dt>資料來源</dt><dd>政策島、各島政策細項數量與協作關係，整理自${link("https://puma.taipei/heart-island", "HEART 政策島")}的公開資料（2026-10-22 擷取）。政策內容以 ${link("https://puma.taipei/policies", "puma.taipei 政策頁")}原文為準。</dd>
-    <dt>自行整理</dt><dd>六種資源分類、流動說明文字、版面與 3D 場景皆為本原型自行設計，可能與原意有出入。</dd>
+    <dt>自行整理</dt><dd>六種資源分類、流動說明文字、版面與 3D 場景皆為本 prototype 自行設計，可能與原意有出入。</dd>
     <dt>靈感</dt><dd>資源檢視參考城市模擬遊戲 SimCity 與 Cities: Skylines 的資訊圖層。</dd>
     <dt>技術</dt><dd>3D 場景以 ${link("https://threejs.org", "Three.js")}（MIT 授權）繪製。</dd>
   </dl>
