@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { CSS2DRenderer, CSS2DObject } from "three/addons/renderers/CSS2DRenderer.js";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { nodes, lanes, resources, state, set, initUI, activeLanes, roleOf, showTip, hideTip } from "./ui.js";
 import { createEnv } from "./env.js";
 
@@ -68,10 +70,12 @@ const env = createEnv(scene, { css: tone, isDark: () => state.night });
 // the frame loop eases toward it. `key` entries re-read their base from CSS on theme change.
 const tints = new Map(); // island id -> [{ m, base, target, key }]
 const matCache = new Map();
-function mat(id, color, key) {
-  const k = `${id}|${key || color}`;
+// Smooth-shaded by default for a soft, toy-like finish; `flat` for rock and roof
+// planes that should read as facets.
+function mat(id, color, key, flat = false) {
+  const k = `${id}|${key || color}|${flat}`;
   if (matCache.has(k)) return matCache.get(k);
-  const m = new THREE.MeshStandardMaterial({ color: key ? tone(key) : color, roughness: 0.85, flatShading: true });
+  const m = new THREE.MeshStandardMaterial({ color: key ? tone(key) : color, roughness: 0.8, flatShading: flat });
   tints.get(id).push({ m, base: m.color.clone(), target: m.color.clone(), key });
   matCache.set(k, m);
   return m;
@@ -86,7 +90,8 @@ const winMat = (id) => {
 const lampMat = new THREE.MeshStandardMaterial({ color: "#fff4d8", emissive: "#ffc66e", emissiveIntensity: 0 });
 
 const G = {
-  box: new THREE.BoxGeometry(1, 1, 1),
+  // Every box has softly rounded edges; scaled, the corners stay proportionate.
+  box: new RoundedBoxGeometry(1, 1, 1, 2, 0.12),
   roof: new THREE.ConeGeometry(Math.SQRT1_2, 1, 4).rotateY(Math.PI / 4),
   pine: new THREE.ConeGeometry(1, 1, 7),
   bush: new THREE.IcosahedronGeometry(1, 0),
@@ -97,8 +102,11 @@ const G = {
   gable: new THREE.CylinderGeometry(1, 1, 1, 3).rotateY(Math.PI / 2).rotateZ(Math.PI / 2).translate(0, 0.5, 0).scale(1, 1 / 1.5, 1 / Math.sqrt(3)),
   blob: new THREE.IcosahedronGeometry(1, 1),
   petal: new THREE.SphereGeometry(0.016, 6, 4),
-  lampHead: new THREE.SphereGeometry(0.02, 10, 6),
+  lampHead: new THREE.SphereGeometry(0.027, 12, 8),
   pebble: new THREE.IcosahedronGeometry(1, 0),
+  crown: new THREE.SphereGeometry(1, 16, 12),
+  cone: new THREE.ConeGeometry(1, 1, 12),
+  fruit: new THREE.SphereGeometry(0.014, 8, 6),
   dot: new THREE.SphereGeometry(0.06, 12, 8),
 };
 
@@ -125,43 +133,77 @@ function mesh(g, geo, m, x, y, z, sx, sy, sz) {
   g.add(o);
   return o;
 }
-// A building with a window band per storey on its long faces, a door, and a hip,
-// gable or flat roof (flat ones get a rooftop box).
-function house(g, id, top, x, z, w, d, h, wall, roof, rot = 0, kind = "hip") {
+// A chunky, toy-like building: stone plinth, rounded walls, framed windows with a
+// mullion, a framed door under a small awning, and a thick hip, gable or flat roof.
+// Roof planes stay flat-shaded so their slopes read; everything else is soft.
+const TRIM = "#fbf7ee", STONE = "#cfc5b3", DOORS = ["#8a5a3c", "#3f7f8c", "#b5473f", "#5b6f9a"];
+function windowAt(p, id, x, y, z, s, ww, wh) {
+  mesh(p, G.box, mat(id, TRIM), x, y, z, ww + 0.014, wh + 0.014, 0.01);
+  mesh(p, G.box, winMat(id), x, y, z + s * 0.004, ww, wh, 0.008);
+  mesh(p, G.box, mat(id, TRIM), x, y, z + s * 0.007, 0.005, wh, 0.004);
+  mesh(p, G.box, mat(id, TRIM), x, y - wh / 2 - 0.006, z + s * 0.008, ww + 0.02, 0.008, 0.016);
+}
+function house(g, id, top, x, z, w, d, h, wall, roof, rot = 0, kind = "hip", rand = Math.random) {
   const p = new THREE.Group();
   p.position.set(x, top, z);
   p.rotation.y = rot;
-  mesh(p, G.box, mat(id, wall), 0, h / 2, 0, w, h, d);
-  const floors = Math.max(1, Math.round(h / 0.1)), band = Math.min(0.034, (h / floors) * 0.45);
-  for (let f = 0; f < floors; f++)
-    for (const s of [-1, 1]) mesh(p, G.box, winMat(id), 0, (h / floors) * (f + 0.55), s * (d / 2 + 0.002), w * 0.74, band, 0.004);
-  mesh(p, G.box, mat(id, "#7b5a40"), w * 0.22, 0.035, d / 2 + 0.003, Math.min(0.04, w * 0.2), 0.07, 0.004);
-  if (kind === "gable") mesh(p, G.gable, mat(id, roof), 0, h, 0, w * 1.1, 0.11, d * 1.14);
-  else if (kind === "flat") {
-    mesh(p, G.box, mat(id, "#d8d1c4"), 0, h + 0.012, 0, w * 1.04, 0.024, d * 1.04);
-    mesh(p, G.box, mat(id, roof), w * 0.18, h + 0.05, -d * 0.12, w * 0.32, 0.055, d * 0.32);
-  } else mesh(p, G.roof, mat(id, roof), 0, h + 0.07, 0, w * 1.12, 0.14, d * 1.12);
   g.add(p);
+  const base = 0.024, roofY = base + h;
+  mesh(p, G.box, mat(id, STONE), 0, base / 2, 0, w + 0.03, base, d + 0.03);
+  mesh(p, G.box, mat(id, wall), 0, base + h / 2, 0, w, h, d);
+  const floors = Math.max(1, Math.round(h / 0.11)), fh = h / floors, two = w > 0.15;
+  const ww = Math.min(0.048, w * (two ? 0.26 : 0.4)), wh = Math.min(0.044, fh * 0.48);
+  for (let f = 0; f < floors; f++)
+    for (const s of [-1, 1])
+      for (const k of two ? [-1, 1] : [0]) {
+        if (f === 0 && s === 1 && (two ? k === 1 : true)) continue; // the door's spot
+        windowAt(p, id, k * w * 0.24, base + fh * (f + 0.55), s * (d / 2 + 0.004), s, ww, wh);
+      }
+  // Door, frame, awning and step on the front face.
+  const dx = two ? w * 0.24 : 0, dh = Math.min(0.075, fh * 0.75);
+  mesh(p, G.box, mat(id, TRIM), dx, base + dh / 2, d / 2 + 0.004, 0.05, dh + 0.012, 0.01);
+  mesh(p, G.box, mat(id, DOORS[Math.floor(rand() * DOORS.length)]), dx, base + dh / 2, d / 2 + 0.008, 0.036, dh, 0.006);
+  mesh(p, G.box, mat(id, roof), dx, base + dh + 0.016, d / 2 + 0.02, 0.064, 0.012, 0.036);
+  mesh(p, G.box, mat(id, STONE), dx, 0.008, d / 2 + 0.026, 0.06, 0.016, 0.03);
+  if (kind === "flat") {
+    mesh(p, G.box, mat(id, TRIM), 0, roofY + 0.014, 0, w * 1.06, 0.028, d * 1.06);
+    mesh(p, G.box, mat(id, roof), w * 0.18, roofY + 0.055, -d * 0.12, w * 0.32, 0.06, d * 0.32);
+    return;
+  }
+  const roofMat = mat(id, roof, null, true);
+  if (kind === "gable") {
+    mesh(p, G.box, mat(id, TRIM), 0, roofY + 0.006, 0, w * 1.04, 0.012, d * 1.04);
+    mesh(p, G.gable, roofMat, 0, roofY + 0.01, 0, w * 1.2, 0.13, d * 1.26);
+  } else mesh(p, G.roof, roofMat, 0, roofY + 0.085, 0, w * 1.24, 0.17, d * 1.24);
+  if (rand() < 0.55) mesh(p, G.box, mat(id, "#b8664a"), -w * 0.26, roofY + 0.09, -d * 0.12, 0.032, 0.09, 0.032);
 }
-// Layered pines and round, three-blob broadleaves, each turned a little differently.
+// Fluffy round trees (some with fruit) and stacked, rounded pines.
+const FRUIT = ["#f08a4b", "#e8524f", "#f2c14e"];
 function tree(g, id, top, x, z, s, rand) {
   const t = new THREE.Group();
   t.position.set(x, top, z);
   t.rotation.y = rand() * Math.PI * 2;
   g.add(t);
-  mesh(t, G.trunk, mat(id, "#7a5a3f"), 0, 0.06 * s, 0, s, 0.12 * s, s);
+  mesh(t, G.cyl, mat(id, "#8a6446"), 0, 0.07 * s, 0, 0.022 * s, 0.14 * s, 0.022 * s);
   const leaf = mat(id, LEAVES[Math.floor(rand() * LEAVES.length)]);
-  if (rand() < 0.5) {
-    mesh(t, G.pine, leaf, 0, 0.2 * s, 0, 0.15 * s, 0.22 * s, 0.15 * s);
-    mesh(t, G.pine, leaf, 0, 0.33 * s, 0, 0.105 * s, 0.2 * s, 0.105 * s);
-  } else {
-    mesh(t, G.blob, leaf, 0, 0.23 * s, 0, 0.12 * s, 0.11 * s, 0.12 * s);
-    mesh(t, G.blob, leaf, 0.065 * s, 0.18 * s, 0.03 * s, 0.08 * s, 0.075 * s, 0.08 * s);
-    mesh(t, G.blob, leaf, -0.055 * s, 0.19 * s, -0.04 * s, 0.08 * s, 0.07 * s, 0.08 * s);
+  if (rand() < 0.4) {
+    for (const [y, r, hgt] of [[0.17, 0.15, 0.17], [0.27, 0.115, 0.15], [0.36, 0.08, 0.13]]) mesh(t, G.cone, leaf, 0, y * s, 0, r * s, hgt * s, r * s);
+    return;
+  }
+  mesh(t, G.crown, leaf, 0, 0.25 * s, 0, 0.125 * s, 0.115 * s, 0.125 * s);
+  mesh(t, G.crown, leaf, 0.07 * s, 0.2 * s, 0.03 * s, 0.085 * s, 0.08 * s, 0.085 * s);
+  mesh(t, G.crown, leaf, -0.06 * s, 0.21 * s, -0.04 * s, 0.085 * s, 0.078 * s, 0.085 * s);
+  if (rand() < 0.35) {
+    const fruit = mat(id, FRUIT[Math.floor(rand() * FRUIT.length)]);
+    for (let k = 0; k < 4; k++) {
+      const a = rand() * Math.PI * 2;
+      mesh(t, G.fruit, fruit, Math.sin(a) * 0.12 * s, (0.2 + rand() * 0.08) * s, Math.cos(a) * 0.12 * s, s, s, s);
+    }
   }
 }
 function lamp(g, id, top, x, z) {
-  mesh(g, G.trunk, mat(id, "#4a4a50"), x, top + 0.09, z, 0.4, 0.18, 0.4);
+  mesh(g, G.cyl, mat(id, "#7d9188"), x, top + 0.085, z, 0.009, 0.17, 0.009);
+  mesh(g, G.cyl, mat(id, "#7d9188"), x, top + 0.215, z, 0.026, 0.012, 0.026);
   mesh(g, G.lampHead, lampMat, x, top + 0.19, z, 1, 1, 1);
 }
 const PETALS = ["#e86a8a", "#f2c14e", "#fbf6ee", "#b77fe0", "#ef8a4b"];
@@ -312,6 +354,28 @@ const edgeLocal = (n, k) => {
   const a = (Math.PI / 3) * k + Math.PI / 6;
   return [Math.sin(a) * EDGE(n), Math.cos(a) * EDGE(n)];
 };
+// Merge an island's static meshes into one mesh per material: hundreds of small parts
+// become a few dozen draw calls, and per-island materials keep the info-view tints.
+function bake(g, id) {
+  g.updateMatrixWorld(true);
+  const inv = g.matrixWorld.clone().invert(), byMat = new Map(), parts = [];
+  g.traverse((o) => {
+    if (!o.isMesh || Array.isArray(o.material)) return;
+    let geo = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+    for (const name of Object.keys(geo.attributes)) if (!["position", "normal", "uv"].includes(name)) geo.deleteAttribute(name);
+    geo.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+    if (!byMat.has(o.material)) byMat.set(o.material, []);
+    byMat.get(o.material).push(geo);
+    parts.push(o);
+  });
+  for (const o of parts) o.removeFromParent();
+  for (const [m, geos] of byMat) g.add(new THREE.Mesh(mergeGeometries(geos), m));
+  g.traverse((o) => {
+    o.userData.id = id;
+    if (o.isMesh) o.castShadow = o.receiveShadow = true;
+  });
+}
+
 // A pointy-top hexagon in the xy plane that, after rotateX(-π/2), lines up with the
 // island's hex (corner toward -z).
 function hexShape(r) {
@@ -336,7 +400,7 @@ for (const n of nodes.values()) {
   world.add(g);
 
   // A beveled grass-and-earth cap on a rock base that tapers into the water.
-  const earth = mat(n.id, null, "--cliff"), ground = mat(n.id, null, "--ground"), rock = mat(n.id, null, "--rock");
+  const earth = mat(n.id, null, "--cliff"), ground = mat(n.id, null, "--ground"), rock = mat(n.id, null, "--rock", true);
   const cap = new THREE.ExtrudeGeometry(hexShape(R - CAP.bevel), { depth: CAP.depth, bevelEnabled: true, bevelSize: CAP.bevel, bevelThickness: CAP.bevel, bevelSegments: 2 }).rotateX(-Math.PI / 2);
   const capMesh = new THREE.Mesh(cap, [ground, earth]);
   capMesh.position.y = top - CAP.depth - CAP.bevel;
@@ -376,7 +440,7 @@ for (const n of nodes.values()) {
       if (corner && houses-- > 0) {
         const w = 0.13 + rand() * 0.06, h = 0.12 + rand() * 0.16;
         const kind = h > 0.22 ? "flat" : rand() < 0.5 ? "gable" : "hip";
-        house(g, n.id, top, x, z, w, w * (0.8 + rand() * 0.4), h, WALLS[Math.floor(rand() * WALLS.length)], rand() < 0.5 ? accent : ROOFS[Math.floor(rand() * ROOFS.length)], a, kind);
+        house(g, n.id, top, x, z, w, w * (0.8 + rand() * 0.4), h, WALLS[Math.floor(rand() * WALLS.length)], rand() < 0.5 ? accent : ROOFS[Math.floor(rand() * ROOFS.length)], a, kind, rand);
       } else {
         const pick = rand();
         if (pick < 0.6) tree(g, n.id, top, x, z, 0.7 + rand() * 0.5, rand);
@@ -385,10 +449,7 @@ for (const n of nodes.values()) {
     }
   }
 
-  g.traverse((o) => {
-    o.userData.id = n.id;
-    if (o.isMesh) o.castShadow = o.receiveShadow = true;
-  });
+  bake(g, n.id);
   pickables.push(g);
 
   const div = document.createElement("div");
@@ -525,8 +586,14 @@ function routeFor(a, b, rand) {
 }
 
 const MAX_PEOPLE = 800;
-const SKIN = ["#f1c9a5", "#e0ac84", "#c68a62", "#8d5a3b", "#f6d7bd"];
-const CLOTHES = ["#3f6fb2", "#d9612f", "#4f8c55", "#8a5bb8", "#c9930f", "#2e8a8a", "#b5473f", "#5b5f66", "#ece6da"];
+const SKIN = ["#f6d7bd", "#eec09a", "#d9a07a", "#b87a55", "#8d5a3b"];
+const CLOTHES = ["#4f86c6", "#e8774f", "#5fae6e", "#9a6cc8", "#e2b23a", "#3aa3a0", "#d65a5a", "#f2efe6"];
+const PANTS = ["#3b4a6b", "#5a4636", "#2f3a40", "#6b5b8a", "#4c6a5a"];
+const HAIR = ["#3b2a20", "#6b4a2e", "#1f1b1a", "#c98f4a", "#8a5a3c", "#d9d2c5"];
+const pickColor = (list, rand) => new THREE.Color(list[Math.floor(rand() * list.length)]);
+
+// Chunky figures built from instanced parts. Feet rest on y = 0 and the figure faces
+// +z; legs hang from hips and arms from shoulders so they can swing as it walks.
 function crowd(geo, m) {
   const o = new THREE.InstancedMesh(geo, m, MAX_PEOPLE);
   o.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -536,19 +603,30 @@ function crowd(geo, m) {
   world.add(o);
   return o;
 }
-const bodies = crowd(new THREE.CapsuleGeometry(0.026, 0.05, 3, 8).translate(0, 0.051, 0), new THREE.MeshStandardMaterial({ roughness: 0.8 }));
-const heads = crowd(new THREE.SphereGeometry(0.027, 10, 8).translate(0, 0.128, 0), new THREE.MeshStandardMaterial({ roughness: 0.7 }));
-const crates = crowd(new THREE.BoxGeometry(0.05, 0.04, 0.05).translate(0, 0.18, 0), new THREE.MeshBasicMaterial({ toneMapped: false }));
+const soft = () => new THREE.MeshStandardMaterial({ roughness: 0.75 });
+const eyePair = mergeGeometries([-1, 1].map((x) => new THREE.SphereGeometry(0.0075, 8, 6).translate(x * 0.018, 0.192, 0.045)));
+const P = {
+  torso: crowd(new THREE.CapsuleGeometry(0.033, 0.036, 4, 12).translate(0, 0.09, 0), soft()),
+  head: crowd(new THREE.SphereGeometry(0.05, 18, 14).translate(0, 0.188, 0), soft()),
+  hair: crowd(new THREE.SphereGeometry(0.053, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.52).translate(0, 0.192, -0.006), soft()),
+  eyes: crowd(eyePair, new THREE.MeshBasicMaterial({ color: "#2a2522" })),
+  legL: crowd(new THREE.CapsuleGeometry(0.014, 0.03, 4, 8).translate(0, -0.03, 0), soft()),
+  legR: crowd(new THREE.CapsuleGeometry(0.014, 0.03, 4, 8).translate(0, -0.03, 0), soft()),
+  armL: crowd(new THREE.CapsuleGeometry(0.012, 0.03, 4, 8).translate(0, -0.027, 0), soft()),
+  armR: crowd(new THREE.CapsuleGeometry(0.012, 0.03, 4, 8).translate(0, -0.027, 0), soft()),
+  crate: crowd(new RoundedBoxGeometry(0.065, 0.05, 0.05, 2, 0.008).translate(0, 0.105, 0.075), new THREE.MeshBasicMaterial({ toneMapped: false })),
+};
+const HIP = 0.06, HIP_X = 0.017, SHOULDER = 0.118, SHOULDER_X = 0.044;
 
 const residents = [];
 for (const n of nodes.values()) {
   const rand = rng(`${n.id}-people`), pts = [];
   for (let i = 0; i <= 12; i++) pts.push(ringPt(n.id, i % 12));
   const loop = measure(pts, true);
-  for (let k = 0; k < (n.port ? 1 : 3); k++)
+  for (let k = 0; k < (n.port ? 1 : 4); k++)
     residents.push({
       route: loop, phase: rand(), speed: (rand() < 0.5 ? 1 : -1) * (0.12 + rand() * 0.08), off: 0.02,
-      clothes: new THREE.Color(CLOTHES[Math.floor(rand() * CLOTHES.length)]), skin: new THREE.Color(SKIN[Math.floor(rand() * SKIN.length)]),
+      clothes: pickColor(CLOTHES, rand), skin: pickColor(SKIN, rand), pants: pickColor(PANTS, rand), hair: pickColor(HAIR, rand),
     });
 }
 
@@ -563,24 +641,32 @@ function buildPeople(list, dim) {
     for (let k = 0; k < count; k++)
       carriers.push({
         route, phase: (k + rand() * 0.6) / count, speed: 0.26 + rand() * 0.1, off: 0.03 + rand() * 0.015,
-        clothes: new THREE.Color(CLOTHES[Math.floor(rand() * CLOTHES.length)]).lerp(color, 0.35),
-        skin: new THREE.Color(SKIN[Math.floor(rand() * SKIN.length)]), crate: color, hidden: dim && !l.hi,
+        clothes: pickColor(CLOTHES, rand).lerp(color, 0.35), skin: pickColor(SKIN, rand), pants: pickColor(PANTS, rand), hair: pickColor(HAIR, rand),
+        crate: color, hidden: dim && !l.hi,
       });
   }
   people = residents.concat(carriers).slice(0, MAX_PEOPLE);
   people.forEach((p, i) => {
     // In an info view, residents fade to gray so the carriers read as the network.
-    bodies.setColorAt(i, state.res && state.res !== "all" && !p.crate ? gray : p.clothes);
-    heads.setColorAt(i, p.skin);
-    crates.setColorAt(i, p.crate || p.clothes);
+    const shirt = state.res && state.res !== "all" && !p.crate ? gray : p.clothes;
+    for (const part of [P.torso, P.armL, P.armR]) part.setColorAt(i, shirt);
+    for (const part of [P.legL, P.legR]) part.setColorAt(i, p.pants);
+    P.head.setColorAt(i, p.skin);
+    P.hair.setColorAt(i, p.hair);
+    P.crate.setColorAt(i, p.crate || p.clothes);
   });
-  for (const o of [bodies, heads, crates]) {
+  for (const o of Object.values(P)) {
     o.count = people.length;
     if (o.instanceColor) o.instanceColor.needsUpdate = true;
   }
 }
 
-const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _z = new THREE.Vector3();
+const _m = new THREE.Matrix4(), _l = new THREE.Matrix4(), _w = new THREE.Matrix4(), _q = new THREE.Quaternion();
+const _p = new THREE.Vector3(), _s = new THREE.Vector3(), ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+function limb(part, i, x, y, angle) {
+  _l.makeRotationX(angle).setPosition(x, y, 0);
+  part.setMatrixAt(i, _w.multiplyMatrices(_m, _l));
+}
 function stepPeople(t) {
   people.forEach((w, i) => {
     const { pts, cum, len, loop } = w.route;
@@ -598,17 +684,22 @@ function stepPeople(t) {
     // Keep right, so two-way traffic on a road splits into two files.
     _p.x += (-dz / d) * w.off;
     _p.z += (dx / d) * w.off;
-    _p.y += islands.get(a.id).g.position.y + Math.abs(Math.sin(t * 10 + w.phase * 40)) * 0.012;
+    // Stride matches walking speed; the body bobs twice per stride.
+    const stride = t * Math.abs(w.speed) * 32 + w.phase * 40, swing = Math.sin(stride) * 0.6;
+    _p.y += islands.get(a.id).g.position.y + Math.abs(Math.cos(stride)) * 0.008;
     const fade = loop ? 1 : Math.min(1, s / 0.12, (len - s) / 0.12);
     _q.setFromAxisAngle(UP, Math.atan2(dx, dz));
-    _s.setScalar(w.hidden ? 0 : 1.3 * Math.max(0, fade));
+    _s.setScalar(w.hidden ? 0 : Math.max(0, fade));
     _m.compose(_p, _q, _s);
-    bodies.setMatrixAt(i, _m);
-    heads.setMatrixAt(i, _m);
-    if (!w.crate) _m.compose(_p, _q, _z);
-    crates.setMatrixAt(i, _m);
+    for (const part of [P.torso, P.head, P.hair, P.eyes]) part.setMatrixAt(i, _m);
+    limb(P.legL, i, -HIP_X, HIP, swing);
+    limb(P.legR, i, HIP_X, HIP, -swing);
+    // Carriers hold their crate out front with both arms; others swing theirs.
+    limb(P.armL, i, -SHOULDER_X, SHOULDER, w.crate ? -1.15 : -swing * 0.8);
+    limb(P.armR, i, SHOULDER_X, SHOULDER, w.crate ? -1.15 : swing * 0.8);
+    P.crate.setMatrixAt(i, w.crate ? _m : ZERO);
   });
-  for (const o of [bodies, heads, crates]) o.instanceMatrix.needsUpdate = true;
+  for (const o of Object.values(P)) o.instanceMatrix.needsUpdate = true;
 }
 
 // ---- info view ---------------------------------------------------------------
