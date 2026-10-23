@@ -14,10 +14,11 @@ the wording here are ours (see `data.js`).
 There are two views over the same data and side panel (`ui.js`):
 
 - `index.html` / `scene.js`: a 3D diorama in Three.js (pinned on jsDelivr via an
-  import map). Islands, landmarks and lanes are procedural, and lanes arc between
-  islands with moving particles.
+  import map). Islands, landmarks, roads and bridges are procedural. Lanes arc
+  between islands, and people carrying resource-colored crates walk each lane's
+  route over the bridges.
 - `flat.html` / `flat.js`: the original flat SVG hex map, also the fallback when
   WebGL is unavailable.
 
-There's no build step. Run it with any static server, for example
-`python3 -m http.server 5178`, then open http://localhost:5178.
+There's no build step. Run `python3 serve.py`, then open http://localhost:5178. Any
+static server works, but this one disables browser caching, so edits show on reload.
