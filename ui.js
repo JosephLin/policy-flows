@@ -56,10 +56,10 @@ export function activeLanes() {
     if (!state.res || (state.res !== "all" && l.res !== state.res)) continue;
     const key = `${l.a}>${l.b}`, nth = seen.get(key) || 0;
     seen.set(key, nth + 1);
-    const hi = (state.focus && (l.a === state.focus || l.b === state.focus)) || state.hoverFlow === l.flow.id;
+    const hi = (state.focus && (l.a === state.focus || l.b === state.focus)) || state.hoverFlow === l.flow.id || state.hoverNode === l.a;
     list.push({ ...l, nth, hi });
   }
-  return { list, dim: !!(state.focus || state.hoverFlow) };
+  return { list, dim: !!(state.focus || state.hoverFlow || state.hoverNode) };
 }
 
 export const name = (id) => nodes.get(id).zh;
@@ -72,7 +72,8 @@ export const roleOf = (id, out, inn, r) => {
 
 // ---- state -------------------------------------------------------------------
 // res: null shows no lanes, "all" shows every lane, a resource id shows one network.
-export const state = { res: null, focus: null, hoverFlow: null };
+// hoverFlow / hoverNode: the 流動 or 主要來源 row under the pointer, whose lanes light up.
+export const state = { res: null, focus: null, hoverFlow: null, hoverNode: null };
 let hooks = {};
 
 export function set(patch) {
@@ -214,7 +215,7 @@ export function initUI(h) {
   bar.addEventListener("click", (e) => {
     const b = e.target.closest("button");
     // Clicking the selected resource again turns it off, like pressing its key twice.
-    if (b) set({ res: b.dataset.res !== state.res ? b.dataset.res : null, hoverFlow: null });
+    if (b) set({ res: b.dataset.res !== state.res ? b.dataset.res : null, hoverFlow: null, hoverNode: null });
   });
 
   addEventListener("keydown", (e) => {
@@ -233,14 +234,18 @@ export function initUI(h) {
     else if (t.dataset.flow) set({ res: t.dataset.res, hoverFlow: t.dataset.flow });
     else if (t.dataset.res) set({ res: t.dataset.res });
   });
+  // Hovering a 流動 row lights that flow's lanes; a 主要來源 row lights the lanes that island sends.
+  const hover = (flow, node) => {
+    if (flow === state.hoverFlow && node === state.hoverNode) return;
+    Object.assign(state, { hoverFlow: flow, hoverNode: node });
+    hooks.onHoverFlow?.();
+  };
   panel.addEventListener("pointerover", (e) => {
-    const t = e.target.closest("[data-flow]");
-    const id = t && (state.res === "all" || t.dataset.res === state.res) ? t.dataset.flow : null;
-    if (id !== state.hoverFlow) {
-      state.hoverFlow = id;
-      hooks.onHoverFlow?.();
-    }
+    const t = e.target.closest("[data-flow],[data-node]");
+    const flow = t?.dataset.flow && (state.res === "all" || t.dataset.res === state.res) ? t.dataset.flow : null;
+    hover(flow, t?.dataset.node || null);
   });
+  panel.addEventListener("pointerleave", () => hover(null, null));
 
   render();
 }
