@@ -1,22 +1,23 @@
 // Islands, outside connections and flows, re-described from the public structure of
 // https://puma.taipei/heart-island (policies.json, checked 2026-10-22). Coordinates are
-// pointy-top axial hexes (q, r). Flow text is our own paraphrase, not the source copy.
+// pointy-top axial hexes (q, r); b is the island's policy item count. Flow text is our
+// own paraphrase, not the source copy.
 
 export const islands = [
-  { id: "civil", n: 1, en: "Civic core", zh: "市府核心", q: -1, r: 4 },
-  { id: "institute", n: 2, en: "Research Institute", zh: "台北研究院", q: 0, r: 3 },
-  { id: "transport", n: 3, en: "Transport", zh: "交通", q: -1, r: 5 },
-  { id: "education", n: 4, en: "Education", zh: "教育", q: -1, r: 2 },
-  { id: "lunch", n: 5, en: "School meals", zh: "營養午餐", q: 0, r: 2 },
-  { id: "family", n: 6, en: "Family support", zh: "家庭一站通", q: -1, r: 3 },
-  { id: "card", n: 7, en: "Family card", zh: "親子同行卡", q: -2, r: 3 },
-  { id: "welfare", n: 8, en: "Health & care", zh: "衛福與社會照顧", q: -2, r: 4 },
-  { id: "sport", n: 9, en: "Sport", zh: "運動", q: -2, r: 6 },
-  { id: "trails", n: 10, en: "Culture & trails", zh: "文化徑 × 山林徑", q: 1, r: 0 },
-  { id: "forest", n: 11, en: "Urban forest", zh: "都市微森林", q: 0, r: 1 },
-  { id: "youth", n: 12, en: "Youth", zh: "青年", q: 0, r: 4 },
-  { id: "diplomacy", n: 13, en: "City diplomacy", zh: "城市外交", q: 1, r: 1 },
-  { id: "hakka", n: 14, en: "Hakka", zh: "客家", q: -3, r: 4 },
+  { id: "civil", n: 1, en: "Civic core", zh: "市府核心", q: -1, r: 4, b: 6 },
+  { id: "institute", n: 2, en: "Research Institute", zh: "台北研究院", q: 0, r: 3, b: 4 },
+  { id: "transport", n: 3, en: "Transport", zh: "交通", q: -1, r: 5, b: 7 },
+  { id: "education", n: 4, en: "Education", zh: "教育", q: -1, r: 2, b: 10 },
+  { id: "lunch", n: 5, en: "School meals", zh: "營養午餐", q: 0, r: 2, b: 4 },
+  { id: "family", n: 6, en: "Family support", zh: "家庭一站通", q: -1, r: 3, b: 6 },
+  { id: "card", n: 7, en: "Family card", zh: "親子同行卡", q: -2, r: 3, b: 6 },
+  { id: "welfare", n: 8, en: "Health & care", zh: "衛福與社會照顧", q: -2, r: 4, b: 14 },
+  { id: "sport", n: 9, en: "Sport", zh: "運動", q: -2, r: 6, b: 8 },
+  { id: "trails", n: 10, en: "Culture & trails", zh: "文化徑 × 山林徑", q: 1, r: 0, b: 9 },
+  { id: "forest", n: 11, en: "Urban forest", zh: "都市微森林", q: 0, r: 1, b: 8 },
+  { id: "youth", n: 12, en: "Youth", zh: "青年", q: 0, r: 4, b: 3 },
+  { id: "diplomacy", n: 13, en: "City diplomacy", zh: "城市外交", q: 1, r: 1, b: 4 },
+  { id: "hakka", n: 14, en: "Hakka", zh: "客家", q: -3, r: 4, b: 5 },
 ];
 
 // Outside connections have no island in the source; placed on empty hexes next to

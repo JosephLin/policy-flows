@@ -16,6 +16,11 @@
   --care: #cf3f74;
   --access: #c48a0c;
   --supply: #2a9356;
+  /* 3D scene */
+  --sky: #e6f0f1;
+  --ground: #ece4cc;
+  --ground-off: #dad8d3;
+  --cliff: #d6c29d;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -36,6 +41,10 @@
     --care: #ec6c9a;
     --access: #e8b134;
     --supply: #4cc07c;
+    --sky: #11161b;
+    --ground: #77705f;
+    --ground-off: #3b3c3f;
+    --cliff: #574b3b;
   }
 }
 
@@ -90,6 +99,34 @@ svg.info .pips { display: none; }
 .lanes.dim .lane:not(.hi) { opacity: .1; }
 @keyframes run { to { stroke-dashoffset: -12.1; } }
 @media (prefers-reduced-motion: reduce) { .lane-dots { animation: none; stroke-dasharray: 6 6; } }
+
+/* 3D view */
+#world { position: absolute; inset: 0; }
+#world canvas { display: block; }
+.labels { position: absolute; inset: 0; pointer-events: none; }
+.lbl {
+  pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 5px;
+  background: var(--card); border: 1px solid var(--card-edge); border-radius: 999px;
+  padding: 2px 9px 2px 3px; font-size: 11.5px; white-space: nowrap; box-shadow: var(--shadow);
+  transition: opacity .25s;
+}
+.lbl b {
+  background: var(--ink); color: var(--card); border-radius: 999px; min-width: 18px; height: 18px;
+  display: grid; place-items: center; font-size: 10.5px;
+}
+.lbl.port { font-size: 10.5px; padding-left: 8px; border-style: dashed; }
+.lbl.port b { display: none; }
+.lbl .rl { font-style: normal; font-weight: 700; color: var(--rc); font-size: 10.5px; }
+.lbl .rl:empty, .lbl .pips:empty { display: none; }
+.lbl .pips { display: flex; gap: 2px; }
+.lbl .pips span { width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
+#world.info .lbl .pips { display: none; }
+#world.info .lbl.off { opacity: .45; padding-right: 3px; }
+#world.info .lbl.off:not(.port) .nm { display: none; }
+#world.info .lbl.port.off { display: none; }
+.lbl.src b, .lbl.both b { background: var(--rc); color: #fff; }
+.lbl.focus { outline: 2px solid var(--ink); }
+.nogl { position: absolute; top: 45%; left: 50%; transform: translateX(-50%); padding: 14px 18px; }
 
 /* tooltip */
 #tip { position: absolute; pointer-events: none; padding: 10px 12px; font-size: 12.5px; max-width: 260px; z-index: 5; }

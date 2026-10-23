@@ -11,5 +11,13 @@ structure of [puma.taipei/heart-island](https://puma.taipei/heart-island), which
 shows the same flows as walkers in a 3D diorama. The six resource groups and all
 the wording here are ours (see `data.js`).
 
-Plain ES modules with an SVG map and no build step. Run it with any static
-server, for example `python3 -m http.server 5178`, then open http://localhost:5178.
+There are two views over the same data and side panel (`ui.js`):
+
+- `index.html` / `scene.js`: a 3D diorama in Three.js (pinned on jsDelivr via an
+  import map). Islands, landmarks and lanes are procedural, and lanes arc between
+  islands with moving particles.
+- `flat.html` / `flat.js`: the original flat SVG hex map, also the fallback when
+  WebGL is unavailable.
+
+There's no build step. Run it with any static server, for example
+`python3 -m http.server 5178`, then open http://localhost:5178.
