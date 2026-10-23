@@ -220,6 +220,14 @@ svg.info .pips { display: none; }
   #panel { border-left: 0; border-top: 1px solid var(--card-edge); }
   .title { left: 16px; right: 16px; max-width: none; padding: 8px 12px; }
   .title p { display: none; }
-  #bar { left: 16px; right: 16px; transform: none; overflow-x: auto; }
-  #bar button { min-width: 64px; font-size: 10.5px; }
+  /* The seven resources share one row; the toggles drop to a compact row below. */
+  #bar { left: 16px; right: 16px; transform: none; flex-wrap: wrap; }
+  #bar > button { flex: 1 1 0; min-width: 0; padding: 6px 2px 5px; font-size: 10.5px; }
+  #bar kbd { display: none; }
+  #bar .togs {
+    flex: 1 0 100%; justify-content: center; margin: 2px 0 0; padding: 4px 0 0;
+    border-left: 0; border-top: 1px solid var(--card-edge);
+  }
+  #bar .tog { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 4px 12px; font-size: 11.5px; }
+  #bar .tog svg { width: 18px; height: 18px; }
 }
