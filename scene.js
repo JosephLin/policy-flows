@@ -300,7 +300,7 @@ function drawLanes() {
   movers = [];
   const { list, dim } = activeLanes();
   if (!list.length) return;
-  const color = new THREE.Color(css(`--${state.res}`));
+  const colors = new Map(resources.map((r) => [r.id, new THREE.Color(css(`--${r.id}`))]));
   const pos = (id) => {
     const i = islands.get(id);
     return new THREE.Vector3(i.g.position.x, i.top + 0.1, i.g.position.z);
@@ -318,7 +318,7 @@ function drawLanes() {
       .addScaledVector(left, 0.16 + l.nth * 0.14 + d * 0.05)
       .addScaledVector(UP, 0.7 + d * 0.28);
     const curve = new THREE.QuadraticBezierCurve3(start, ctrl, end);
-    const faded = dim && !l.hi;
+    const faded = dim && !l.hi, color = colors.get(l.res);
 
     const tube = new THREE.Mesh(
       new THREE.TubeGeometry(curve, 48, 0.04, 8),

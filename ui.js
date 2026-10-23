@@ -48,11 +48,12 @@ export function rolesFor(res) {
   return { out, inn };
 }
 
-// Lanes for the current resource, each with its index among same-direction twins.
+// Lanes for the current resource (all of them in the overview), each with its index
+// among same-direction twins.
 export function activeLanes() {
   const seen = new Map(), list = [];
   for (const l of lanes) {
-    if (l.res !== state.res) continue;
+    if (state.res && l.res !== state.res) continue;
     const key = `${l.a}>${l.b}`, nth = seen.get(key) || 0;
     seen.set(key, nth + 1);
     const hi = (state.focus && (l.a === state.focus || l.b === state.focus)) || state.hoverFlow === l.flow.id;
@@ -162,7 +163,7 @@ function renderPanel(r, out, inn) {
       <h3>圖例</h3>${legend()}`;
   } else {
     html += `<h2>全部資源</h2>
-      <p class="zh">總覽：每座島旁的圓點，代表它參與哪些資源。</p>
+      <p class="zh">總覽：六種資源的流動疊在一起，線條顏色代表資源種類；島旁的圓點代表它參與哪些資源。</p>
       <h3>資源</h3>
       <ul class="list">${resources
         .map((x) => {
@@ -216,7 +217,7 @@ export function initUI(h) {
   });
   panel.addEventListener("pointerover", (e) => {
     const t = e.target.closest("[data-flow]");
-    const id = t && t.dataset.res === state.res ? t.dataset.flow : null;
+    const id = t && (!state.res || t.dataset.res === state.res) ? t.dataset.flow : null;
     if (id !== state.hoverFlow) {
       state.hoverFlow = id;
       hooks.onHoverFlow?.();

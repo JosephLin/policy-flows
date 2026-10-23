@@ -26,8 +26,11 @@ svg.setAttribute("viewBox", `${minX} ${minY} ${Math.max(...xs) + pad - minX} ${M
 svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
 
 const defs = el("defs", {}, svg);
-const marker = el("marker", { id: "arrow", viewBox: "0 0 10 10", refX: 6, refY: 5, markerWidth: 9, markerHeight: 9, markerUnits: "userSpaceOnUse", orient: "auto" }, defs);
-el("path", { d: "M0 0 10 5 0 10z", style: "fill: var(--rc)" }, marker);
+// One arrowhead per resource: a marker takes its color from <defs>, not the lane using it.
+for (const r of resources) {
+  const marker = el("marker", { id: `arrow-${r.id}`, viewBox: "0 0 10 10", refX: 6, refY: 5, markerWidth: 9, markerHeight: 9, markerUnits: "userSpaceOnUse", orient: "auto" }, defs);
+  el("path", { d: "M0 0 10 5 0 10z", style: `fill: var(--${r.id})` }, marker);
+}
 el("rect", { x: minX, y: minY, width: "100%", height: "100%", fill: "transparent", class: "water" }, svg);
 
 const landLayer = el("g", {}, svg);
@@ -71,10 +74,10 @@ function drawLanes() {
   laneLayer.replaceChildren();
   const { list, dim } = activeLanes();
   for (const l of list) {
-    const g = el("g", { class: `lane${l.hi ? " hi" : ""}` }, laneLayer);
+    const g = el("g", { class: `lane${l.hi ? " hi" : ""}`, style: `--rc: var(--${l.res})` }, laneLayer);
     const d = lanePath(l);
     el("path", { class: "lane-base", d }, g);
-    el("path", { class: "lane-dots", d, "marker-end": "url(#arrow)" }, g);
+    el("path", { class: "lane-dots", d, "marker-end": `url(#arrow-${l.res})` }, g);
   }
   laneLayer.classList.toggle("dim", dim);
 }
