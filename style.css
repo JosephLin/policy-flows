@@ -124,11 +124,11 @@ svg.info .node.src .num, svg.info .node.src .name { fill: #fff; }
 svg.info .pips { display: none; }
 
 .lane-base { fill: none; stroke: var(--rc); stroke-opacity: .28; stroke-width: 7; stroke-linecap: round; }
-.lane-dots { fill: none; stroke: var(--rc); stroke-width: 3.5; stroke-linecap: round; stroke-dasharray: 0.1 12; animation: run 1s linear infinite; }
+.lane-dots { fill: none; stroke: var(--rc); stroke-width: 3.5; stroke-linecap: round; stroke-dasharray: 0.1 24; animation: run 2s linear infinite; }
 .lane { transition: opacity .2s; }
 .lanes.dim .lane:not(.hi) { opacity: .65; }
 .lanes.dim .lane:not(.hi) .lane-dots { display: none; }
-@keyframes run { to { stroke-dashoffset: -12.1; } }
+@keyframes run { to { stroke-dashoffset: -24.1; } }
 @media (prefers-reduced-motion: reduce) { .lane-dots { animation: none; stroke-dasharray: 6 6; } }
 
 /* 3D view */

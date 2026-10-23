@@ -390,7 +390,7 @@ function drawLanes() {
 
     // Bulbs travel the arc toward the arrowhead, so direction reads at a glance.
     if (faded) continue;
-    const len = curve.getLength(), count = Math.max(2, Math.round(len * 2.4));
+    const len = curve.getLength(), count = Math.max(1, Math.round(len * 1.2));
     const bulb = new THREE.MeshBasicMaterial({ color });
     for (let k = 0; k < count; k++) {
       const m = new THREE.Mesh(G.dot, bulb);
