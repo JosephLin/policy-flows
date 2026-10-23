@@ -376,21 +376,22 @@ function drawLanes() {
       .addScaledVector(UP, 0.7 + d * 0.28);
     const curve = new THREE.QuadraticBezierCurve3(start, ctrl, end);
     // Every view, the overview included, keeps each arc in its resource's color. A
-    // highlight dims the other lanes but leaves them readable, never hidden.
+    // highlight fades the other lanes to a quiet, still trace: visible, no bulbs.
     const faded = dim && !l.hi, color = colors.get(l.res);
     const tube = new THREE.Mesh(
       new THREE.TubeGeometry(curve, 48, 0.026, 6),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.25 : 0.55, depthWrite: false }),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.18 : 0.55, depthWrite: false }),
     );
     laneGroup.add(tube);
-    const arrow = new THREE.Mesh(G.arrow, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.45 : 1 }));
+    const arrow = new THREE.Mesh(G.arrow, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.33 : 1 }));
     arrow.position.copy(end);
     arrow.quaternion.setFromUnitVectors(UP, curve.getTangentAt(1));
     laneGroup.add(arrow);
 
     // Bulbs travel the arc toward the arrowhead, so direction reads at a glance.
+    if (faded) continue;
     const len = curve.getLength(), count = Math.max(2, Math.round(len * 2.4));
-    const bulb = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: faded ? 0.45 : 1 });
+    const bulb = new THREE.MeshBasicMaterial({ color });
     for (let k = 0; k < count; k++) {
       const m = new THREE.Mesh(G.dot, bulb);
       laneGroup.add(m);
