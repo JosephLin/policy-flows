@@ -82,3 +82,12 @@ Day overview, night overview (夜晚 on) and night close-up.
 ![Water](2026-10-23-water-and-night/day.jpg)
 ![Night](2026-10-23-water-and-night/night.jpg)
 ![Night, close up](2026-10-23-water-and-night/night-closeup.jpg)
+
+### 11 · Shader water
+
+Taken in a wider pane (map 684 px beside the panel, 535 × 545 crop), so it isn't
+framed like the earlier pairs, but before and after match each other.
+
+![Shader water](2026-10-23-shader-water/day.jpg)
+![Shader water, close up](2026-10-23-shader-water/closeup.jpg)
+![Shader water at night](2026-10-23-shader-water/night.jpg)
