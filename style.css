@@ -72,7 +72,9 @@ body {
 }
 button { font: inherit; color: inherit; }
 
-#stage { position: relative; background: var(--water); overflow: hidden; }
+/* The bar sizes itself to the map area, not the window: beside the 340px panel, a
+   1024px window leaves too little room for the one-row bar. */
+#stage { position: relative; background: var(--water); overflow: hidden; container-type: inline-size; }
 #map { width: 100%; height: 100%; display: block; }
 
 .card {
@@ -207,7 +209,11 @@ svg.info .pips { display: none; }
   #panel { border-left: 0; border-top: 1px solid var(--card-edge); }
   .title { left: 16px; right: 16px; max-width: none; padding: 8px 12px; }
   .title p { display: none; }
-  /* The seven resources share one row; the toggles drop to a compact row below. */
+}
+
+/* When the map area is narrower than the one-row bar (about 843px), the seven
+   resources share one row and the toggles drop to a compact row below. */
+@container (max-width: 880px) {
   #bar { left: 16px; right: 16px; transform: none; flex-wrap: wrap; }
   #bar > button { flex: 1 1 0; min-width: 0; padding: 6px 2px 5px; font-size: 10.5px; }
   #bar kbd { display: none; }
