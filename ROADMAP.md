@@ -53,17 +53,38 @@ elders with canes.
 ### 2026-10-23 · 8. Policy landmarks, round 1 (PRs #6, #7)
 
 2–3 of each island's policy items as small original models on the corner plots,
-about 35 of 94. The scene opens in daytime with half as many carriers. Adds the
+36 of 94. The scene opens in daytime with half as many carriers. Adds the
 before/after gallery and `tools/sbs.swift`.
+
+### 2026-10-23 · 9. Landmark hover labels (PR #9)
+
+Pointing at a landmark model shows the policy item it stands for (for example,
+在宅醫療 on the 衛福 minibus), with a ring on the ground. Plain ground still shows
+the island summary.
+
+### 2026-10-23 · 10. Water and night (PR #10)
+
+A brighter, blue moonlit night with stronger windows and lamps, and a soft halo
+around each street lamp. The halos at first swallowed almost every hover and
+click (Three.js hit-tests points within a whole unit, even hidden ones), which
+left only 1 of the 36 labels reachable. They now opt out of hit-testing, and a
+pointer sweep finds all 36.
+
+### 2026-10-23 · 11. Shader water and medium-width bar (PRs #11, #12)
+
+- The sea is shaded live instead of scrolling one tiled texture. Ripples come
+  from nine overlapping waves, with turquoise shallows that deepen to blue away
+  from each island's real outline, fresnel sky tint and lapping shore foam. It
+  runs at half speed.
+- The resource bar sizes itself to the map area with a container query, so at
+  laptop widths (about 821–1,200 px) it wraps to two rows instead of spilling off
+  and clipping the toggles.
 
 ## Next
 
-1. **Hover labels for landmarks**: pointing at a model shows its policy name.
-2. **Water and night**: less rubbery water, and a brighter night with stronger
-   lamps and windows.
-3. **More landmarks**: further rounds toward the 94 items, as many as stay
+1. **More landmarks**: further rounds toward the 94 items, as many as stay
    readable.
-4. **Polish**: overlapping island labels in the north cluster, crowd density in
+2. **Polish**: overlapping island labels in the north cluster, crowd density in
    全部, and performance on phones.
-5. **Optional**: visitor analytics with a note in the 關於 section; versioned
+3. **Optional**: visitor analytics with a note in the 關於 section; versioned
    file URLs so a fresh deploy never loads half-updated (declined for now).
