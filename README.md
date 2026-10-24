@@ -17,13 +17,22 @@ the wording here are ours (see `data.js`).
 There are two views over the same data and side panel (`ui.js`):
 
 - `index.html` / `scene.js`: a 3D diorama in Three.js (pinned on jsDelivr via an
-  import map). Islands, landmarks, roads and bridges are procedural. Lanes arc
-  between islands, and people carrying resource-colored crates walk each lane's
-  route over the bridges. `env.js` draws the surroundings: sky, sea, the hills of
-  the basin, clouds, boats and wind turbines. The dark theme is dusk, with lit
-  windows and street lamps.
+  import map). Everything is procedural and original:
+  - Islands, roads and bridges.
+  - 36 policy items as small models from `landmarks.js`. Pointing at one names its
+    policy.
+  - Lanes arc between islands, and people carrying resource-colored crates walk
+    each lane's route, dressed for their flow.
+  - `env.js` draws the surroundings: sky, a shader sea with live ripples and
+    lapping foam, the hills of the basin, clouds, boats and wind turbines.
+  - The bar's 人物, 箭頭 and 夜晚 toggles show carriers, arcs and a moonlit night
+    with lit windows and lamps.
+  - On load, the map tours the six resources until the viewer interacts.
 - `flat.html` / `flat.js`: the original flat SVG hex map, also the fallback when
   WebGL is unavailable.
+
+`ROADMAP.md` has the dated history and next steps, and `docs/milestones/` has
+before/after screenshots of every milestone. `CLAUDE.md` covers how to work on it.
 
 There's no build step. Run `python3 serve.py`, then open http://localhost:5178. Any
 static server works, but this one disables browser caching, so edits show on reload.
@@ -33,4 +42,4 @@ static server works, but this one disables browser caching, so edits show on rel
 GitHub Pages serves the repo root of `main` as-is; `.nojekyll` stops Jekyll from
 processing the files. A push to `main` redeploys the public site, so changes go
 through a branch and PR from here on. `build_artifact.py` is only for the private
-claude.ai artifact copy.
+claude.ai artifact copy, which was published once early on and isn't kept in sync.
