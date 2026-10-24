@@ -15,7 +15,7 @@ const dark = matchMedia("(prefers-color-scheme: dark)");
 // The scene keeps its own day and night palettes, so the 夜晚 toggle works in either
 // page theme. The scene opens in daytime. Resource colors still come from CSS.
 const PALETTE = {
-  day: { "--sky": "#eaf1ec", "--sky-top": "#9cc6dc", "--sea": "#5f9fb3", "--shallow": "#9fe0d6", "--ground": "#bdd29a", "--ground-off": "#dad8d3", "--cliff": "#c8a77c", "--rock": "#9b9285" },
+  day: { "--sky": "#eaf1ec", "--sky-top": "#9cc6dc", "--sea": "#3b86a6", "--shallow": "#5cc9bd", "--ground": "#bdd29a", "--ground-off": "#dad8d3", "--cliff": "#c8a77c", "--rock": "#9b9285" },
   // Night is a blue moonlit evening, bright enough to read every island.
   night: { "--sky": "#4a5a80", "--sky-top": "#1a2747", "--sea": "#30566e", "--shallow": "#5f9cb0", "--ground": "#6f8d5e", "--ground-off": "#4a4c52", "--cliff": "#76604a", "--rock": "#5f5c56" },
 };
